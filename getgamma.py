@@ -1,21 +1,16 @@
 import emcee
 import os
-from multiprocessing import Pool
-import pandas as pd
 import numpy as np
-from scipy.special import gamma
-from scipy.integrate import quad
 from scipy import integrate
 from astropy.table import Table
 import time
 from astropy import units as u
 from astropy import constants as const
-import scipy.optimize as opt
 import json
 from astropy.table import Table
 import matplotlib.pyplot as plt
 from datetime import datetime
-from mcmc_func import lnprob
+from mcmc_utils import lnprob, lnprobfit
 import random
 
 random.seed(42)
@@ -23,11 +18,12 @@ random.seed(42)
 class MCMC:
 
     def __init__(self, lens_table_path, output_folder = None, 
-                 path_project = '/home/grespanm/github/SLcosmological_parameters',
+                 path_project = '/home/grespanm/github/SLcosmological_parameters/sgl_gamma',
                  model='',
                  bin_width=None, elements_per_bin=None, nsteps=5000, 
                  nwalkers=500, ndim=1, ncpu=15,  burnin = None,
-                 all_ln_probs=None,all_samples=None
+                 all_ln_probs=None,all_samples=None,
+                 lnprob_touse = lnprob, x_ini=2
                  ):
         self.model = model
         self.lens_table_path = lens_table_path
@@ -36,15 +32,23 @@ class MCMC:
         self.nsteps = nsteps
         self.nwalkers = nwalkers
         self.ndim = ndim
-        self.x_ini = 2.
+        self.x_ini = x_ini
         self.ncpu = ncpu
-        self.burnin = int(nsteps*0.1)
+        self.lnprob_touse = lnprob_touse
+        if burnin is None:
+            self.burnin = int(nsteps*0.1)
         # Load lens table
         self.lens_table = Table.read(self.lens_table_path)
         self.binned = True
         self.output_folder = output_folder
         
-
+        if model not in ['ANN', 'CCGP']:
+            raise ValueError('model not known, only available ANN or CCGP')
+        
+        if model == 'CCGP':
+            # there are no values for some lenses 
+            self.lens_table = self.lens_table[(self.lens_table['Gamma_CCGP']>0)] 
+        
         # Constants
         #self.c = c.to('km/s').value
         
@@ -55,12 +59,12 @@ class MCMC:
             print('No binning  - mcmc for every element')
             self.binned = False
             if self.output_folder is None:
-                self.output_folder = os.path.join(path_project, 
+                self.output_folder = os.path.join(path_project, 'Output',
                                                   f"{self.model}_singular_obj_nwalkers_{nwalkers}_nsteps_{nsteps}_no_burnin")
         if bin_width is not None:
             #fixed
             if self.output_folder is None:
-                self.output_folder = os.path.join(path_project,
+                self.output_folder = os.path.join(path_project,'Output',
                                                   f"{self.model}_fixed_{self.bin_width}_nwalkers_{nwalkers}_nsteps_{nsteps}_no_burnin")
             min_z_l = self.lens_table['zl'].min()
             max_z_l = self.lens_table['zl'].max()
@@ -69,7 +73,7 @@ class MCMC:
         if elements_per_bin is not None:
             #adaptive
             if self.output_folder is None:
-                self.output_folder = os.path.join(path_project, 
+                self.output_folder = os.path.join(path_project, 'Output',
                                                   f"{self.model}_adaptive_{self.elements_per_bin}_nwalkers_{nwalkers}_nsteps_{nsteps}_no_burnin")
             self.bin_edges = np.percentile(self.lens_table['zl'], np.linspace(0, 100, self.elements_per_bin + 1))
 
@@ -87,7 +91,10 @@ class MCMC:
             os.makedirs(self.output_folder, exist_ok=True)
             self.all_samples, self.all_ln_probs = all_samples, all_ln_probs
         else:
-            self.all_samples, self.all_ln_probs =  self.load_samples_and_ln_probs()
+            try:
+                self.all_samples, self.all_ln_probs =  self.load_samples_and_ln_probs()
+            except FileNotFoundError:
+                self.all_samples, self.all_ln_probs = all_samples, all_ln_probs
 
 
         #if burnin is None:
@@ -117,54 +124,6 @@ class MCMC:
                 # Folder does not exist, create it
                 os.makedirs(self.output_folder, exist_ok=True)
                 print(f"Folder '{self.output_folder}' created.")
-    '''            
-    def f_gama(self,x):
-        a = -1 / np.sqrt(np.pi)
-        b = ((5 - 2 * x) * (1 - x)) / (3 - x)
-        c = gamma(x - 1) / gamma(x - (3 / 2))
-        d = gamma((x - 1) / 2) / gamma(x / 2)
-
-        return  a * b * self.c * np.square(d)
-
-    def lnprior(self,x):
-        
-        if 1.51<x<2.49:
-            return 0.0
-        return -np.inf
-    
-    def d_th(self,x,theta, theta_ap, sigma):
-    
-        a = (theta*c**2) / (4 * np.pi * sigma**2)
-        
-        return a* np.power((theta / theta_ap), x-2) / self.f_gama(x)
-    
-
-    def solve_for_gamma(self,x, theta_arr, theta_ap_arr, sigma_arr, dd_arr):
-        #print(self.d_th(x, theta_arr, theta_ap_arr, sigma_arr))
-        #print(dd_arr)
-        return dd_arr - self.d_th(x, theta_arr, theta_ap_arr, sigma_arr)
-
-    def d_th(self,x, theta_arr, theta_ap_arr, sigma_arr):
-        a = (theta_arr * self.c**2) / (4 * np.pi * sigma_arr**2)
-        return a * np.power((theta_arr / theta_ap_arr), x - 2) / self.f_gama(x)
-
-
-    def chi_2(self,x, theta_arr, theta_ap_arr, sigma_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr):
-        num = self.solve_for_gamma(x, theta_arr, theta_ap_arr, sigma_arr, dd_arr)**2
-        denom_th = 4 * (abs_delta_sigma_ap_arr / sigma_arr)**2 + ((1 - x) * 0.05)**2 * self.d_th(x, theta_arr, theta_ap_arr, sigma_arr)
-        denom_obs = (abs_delta_dd_arr)**2
-        return num / (denom_obs + denom_th)
-
-
-    def lnlike(self, x, theta_arr, theta_ap_arr, sigma_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr):
-        return np.exp(-self.chi_2(x, theta_arr, theta_ap_arr, sigma_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr) * 0.5)
-
-    def lnprob(self, x, theta_arr, theta_ap_arr, sigma_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr):
-        lp = self.lnprior(x)
-        if np.any(~np.isfinite(lp)):
-            return -np.inf
-        return lp + np.sum(np.log(self.lnlike(x, theta_arr, theta_ap_arr, sigma_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr)))
-    '''
 
     def get_subtable(self):
          # Initialize an empty list to store subtables for each bin
@@ -185,25 +144,26 @@ class MCMC:
     def process_subtable(self, sub_table):
     
         # Process each subtable
-        theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list = [], [], [], [], [], []
+        zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list = [],[], [], [], [], [], []
         
         #print(np.shape(sub_table))
         if len(np.shape(sub_table))==0:
             sub_table =[sub_table]
             
         for row in sub_table:
-        
+            zl = row['zl']
             theta_E_r = row['theta_E'] * u.arcsec.to('radian')
             theta_ap_r = row['theta_ap'] * u.arcsec.to('radian')
             sigma_ap = row['sigma_ap']
-            dd = row['dd_from_ANN']#['ddH']
+            dd = row[f'dd_from_{self.model}']#['ddH']
 
         
             # uncertainties, global values
-            abs_delta_sigma_ap = row['sigma_ap_errorbar']#['sigma_err']
-            abs_delta_dd = row['dd_error_from_ANN']#['ddH_err']
+            abs_delta_sigma_ap = row['sigma_ap_err']#['sigma_err']
+            abs_delta_dd = row[f'dd_error_from_{self.model}']#['ddH_err']
             
             # Append parameter values for this row to lists
+            zl_list.append(zl)
             theta_E_r_list.append(theta_E_r)
             theta_ap_r_list.append(theta_ap_r)
             sigma_ap_list.append(sigma_ap)
@@ -211,29 +171,23 @@ class MCMC:
             abs_delta_sigma_ap_list.append(abs_delta_sigma_ap)
             abs_delta_dd_list.append(abs_delta_dd)
             
-        return np.array(theta_E_r_list),np.array(theta_ap_r_list),np.array(sigma_ap_list),np.array(dd_list),np.array(abs_delta_sigma_ap_list),np.array(abs_delta_dd_list)
+        return np.array(zl_list),np.array(theta_E_r_list),np.array(theta_ap_r_list),np.array(sigma_ap_list),np.array(dd_list),np.array(abs_delta_sigma_ap_list),np.array(abs_delta_dd_list)
         
     def run_mcmc(self,):
+
+        print('################ running the mcmc ##################')
         
         # Initialize lists to accumulate samples
         all_samples = []
         all_ln_probs = []
 
-        '''    
-        if self.elements_per_bin:
-            #adaptive
-            self.plot_hist_bins()
-            subtables = self.get_subtable()
-        elif self.bin_width:
-            #fixed
-        '''
         if self.binned:
             print('plot hist zl')
             self.plot_hist_bins()
             subtables = self.get_subtable()
         else:
-            print(len(self.lens_table))
-            subtables = self.lens_table
+            print(f'Number of elements in the table {len(self.lens_table)}')
+            subtables = [self.lens_table]
 
 
         for sub_table in subtables:
@@ -241,13 +195,13 @@ class MCMC:
             if len(sub_table)<1:
                 continue 
 
-            #$print(sub_table['zl'])
+            #print(len(sub_table['zl']))
             
-            theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr = self.process_subtable(sub_table)
+            zl_arr, theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr = self.process_subtable(sub_table)
 
             # initial guess for MCMC
             p0 = [np.random.normal(loc=self.x_ini, scale=1e-4, size=self.ndim) for _ in range(self.nwalkers)]
-
+            
             # Set up the backend
             # Don't forget to clear it in case the file already exists
             filename = os.path.join(self.output_folder, "mcmc_results.h5")
@@ -256,13 +210,19 @@ class MCMC:
             
             # with Pool(ncpu) as pool:
             # initial sampler
-            sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, lnprob,
-                                            args=(theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),  backend=backend)
+            if self.ndim==1:
+                sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
+                                            args=(theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
+                                            backend=backend)
+            elif self.ndim == 2:
+                sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
+                            args=(zl_arr,theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
+                            backend=backend)
 
             sampler.run_mcmc(p0, self.nsteps, progress=True)
         
             # only take one for each group of 10 for correlations between samples
-            thin = 10
+            thin = 1
             
             if self.burnin is None:
                 # autocorrelation check
@@ -380,9 +340,8 @@ class MCMC:
             all_ln_probs = np.load(ln_probs_file_path, allow_pickle=True)
             return all_samples, all_ln_probs
         else:
-            #raise FileNotFoundError(f"Files not found in the specified folder: {self.output_folder}")
-            print('File not found')
-        
+            raise FileNotFoundError(f"Files not found in the specified folder: {self.output_folder}")
+           
     def plot_fit(self ):
 
         '''
@@ -421,7 +380,13 @@ class MCMC:
             plt.errorbar(self.lens_table['zl'], self.lens_table['median_Gamma'],yerr=self.lens_table['mad_median_Gamma'], fmt = '.', color='r', alpha=0.3, label=f'gamma from mcmc with {self.model}')
         plt.plot(xfit, yfit, 'k--', lw=1, label=r'Gamma best fit: $\rm y = \rm %0.2fx + %0.2f$'%(m,b))
         plt.fill_between(xfit, upper_error, lower_error, alpha=0.1,color="k",edgecolor="none")
-        plt.errorbar(x, y, yerr=y_err, fmt='.', markersize=8, capsize=2, elinewidth=2,label='Gamma from adaptive bins')
+        
+        if self.bin_width is not None:
+            label = f'{self.model} fixed {self.bin_width}  bin'
+        if self.elements_per_bin is not None:
+             label = f'{self.model} adaptive # {self.elements_per_bin} per bin'
+        
+        plt.errorbar(x, y, yerr=y_err, fmt='.', markersize=8, capsize=2, elinewidth=2,label=f'{label}')
         #plt.ylim(1.75,2.35)
         # plt.ylim(1.5,2.8)
         plt.xlabel('z$_L$')
@@ -445,9 +410,9 @@ if __name__ == "__main__":
     #bin_width=0.05
     #elements_per_bin=15
 
-    project_folder = '/home/grespanm/github/SLcosmological_parameters'
+    project_folder = '/home/grespanm/github/SLcosmological_parameters/sgl_gamma'
     lens_table_path = os.path.join(project_folder,'Lens_table_ANN.fits')
 
     #fixed bins
-    mcmc_instance_binned = MCMC(lens_table_path, model='ANN', elements_per_bin=15)
+    mcmc_instance_binned = MCMC(lens_table_path, model='ANN', bin_width=0.1)
     mcmc_instance_binned.main()
