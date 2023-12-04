@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from getdist import plots, MCSamples
-from  getgamma import MCMC
+from rec_gamma_mcmc import MCMC
 from mcmc_utils import lnprobfit
  
 # Calculate the best-fit (mean/median) values and uncertainties
@@ -62,18 +62,19 @@ def plot_directfit(samples, output_folder=None):
 
     if output_folder is not None:
         # Optionally, save the plot
-        plt.savefig(os.path.join(output_folder , "gamma_evo_CCGP01.png"))
+        plt.savefig(os.path.join(output_folder , "gamma_evo_CCGP.png"))
 
     # Show the plot
     plt.show(block=False)
  
 
 
-def main(path_project = '/home/grespanm/github/SLcosmological_parameters/sgl_gamma', 
-         lens_table_path = None,show_plot=True, model='CCGP', lnprob_touse=lnprobfit, ndim=2, x_ini=[2.0, 0] ):
+def main(lens_table_path , path_project ,
+         show_plot=True, model='GP', lnprob_touse=lnprobfit, 
+         ndim=2, x_ini=[2.0, 0] ):
     
-    if lens_table_path is None:
-        lens_table_path = os.path.join(path_project,'Data','Combined_table.fits')
+    #if lens_table_path is None:
+    #    lens_table_path = os.path.join(path_project,'Data','Combined_table.fits')
 
     output_folder = os.path.join(path_project, 'Output', 'Gamma_DirectFit' )
 
@@ -82,7 +83,7 @@ def main(path_project = '/home/grespanm/github/SLcosmological_parameters/sgl_gam
         os.makedirs(output_folder, exist_ok=True)
 
 
-    mcmc = MCMC(lens_table_path, model=model, output_folder=output_folder, 
+    mcmc = MCMC(lens_table_path, path_project, model=model, output_folder=output_folder, 
                 lnprob_touse=lnprob_touse, ndim=ndim, x_ini = x_ini)
 
     try:
@@ -101,4 +102,6 @@ def main(path_project = '/home/grespanm/github/SLcosmological_parameters/sgl_gam
 
 if __name__ == "__main__":
 
-    main()
+    path_project = '/home/grespanm/github/SLcosmological_parameters/sgl_gamma'
+    lens_table_path = os.path.join(path_project, 'Data' , 'LensTable02.fits')
+    main(lens_table_path , path_project)
