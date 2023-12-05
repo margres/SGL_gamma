@@ -1,5 +1,5 @@
 # Byte-compiled / optimized / DLL files
-__pycache__/
+*__pycache__*
 *.py[cod]
 *$py.class
 *ipynb
@@ -8,6 +8,7 @@ Output/MCMC*
 *.npy
 # C extensions
 *.so
+*h5
 
 # Distribution / packaging
 .Python
