@@ -2,7 +2,6 @@ from rec_hz_gp import GP
 from rec_dd_ann import ANN
 from rec_gamma_mcmc import MCMC
 import os
-import gamma_directfit
 
 
 path_project='/home/grespanm/github/SLcosmological_parameters/SGL_gamma/'
@@ -11,8 +10,13 @@ lens_table_path = os.path.join(path_project, 'Data' , 'LensTable02.fits')
 print('  ************** running the GP reconstruction **************')
 GP = GP(lens_table_path =lens_table_path, path_project=path_project)
 #GP.main()
-print('Done!')
-ANN = ANN(lens_table_path =lens_table_path, path_project=path_project)
+#print('Done!')
+
+print(f"Using distance reconstruction from {GP.output_table}")
+## run the mcmc for fixed bins for the GP results 
+mcmc_gp = MCMC(lens_table_path=GP.output_table , path_project = path_project, 
+            model='GP', nwalkers =50, nsteps = 100)
+mcmc_gp.main()
 
 if False:
     #### run the ann
@@ -46,4 +50,14 @@ if False:
     mcmc_gp.main()
 
 
-gamma_directfit.main(GP.output_table , path_project=path_project)
+mcmc_direct = MCMC(lens_table_path=GP.output_table , 
+                   path_project=path_project,
+                   output_folder = os.path.join(path_project, 'Output', 'Gamma_DirectFit' ), 
+            model='GP', nwalkers =50, nsteps = 100, mode='direct',  ndim=2, x_ini=[2.0, 0])
+mcmc_direct.main()
+
+mcmc_linear = MCMC(lens_table_path=mcmc_gp.output_table ,
+                   path_project=path_project,
+                   output_folder = os.path.join(path_project,'Output', 'Gamma_LinearFit' ), 
+            model='GP', nwalkers =50, nsteps = 100, mode='linear',  ndim=2, x_ini=[2.0, 0])
+mcmc_linear.main()

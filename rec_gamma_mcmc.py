@@ -8,8 +8,9 @@ from astropy import units as u
 from astropy import constants as const
 import matplotlib.pyplot as plt
 from datetime import datetime
-from mcmc_utils import lnprob, lnprobfit
+from mcmc_utils import lnprob, lnprobdirect, lnproblinear, plot_directfit
 import random
+from multiprocessing import Pool
 
 random.seed(42)
 
@@ -17,29 +18,41 @@ class MCMC:
 
     def __init__(self, lens_table_path, path_project, 
                  output_folder = None, 
-                  model='',
+                 model='',
+                 mode = '',
                  bin_width=None, elements_per_bin=None, nsteps=5000, 
-                 nwalkers=500, ndim=1, ncpu=15,  burnin = None,
+                 nwalkers=500, ndim=1, ncpu=None,  burnin = None,
                  all_ln_probs=None,all_samples=None,
                  lnprob_touse = lnprob, x_ini=2
                  ):
+        
         self.model = model
+        self.mode = mode
         self.lens_table_path = lens_table_path
         self.bin_width = bin_width
         self.elements_per_bin = elements_per_bin
         self.nsteps = nsteps
         self.nwalkers = nwalkers
         self.ndim = ndim
+    
+
+        if ncpu is None:
+            self.ncpu = os.cpu_count()
         self.x_ini = x_ini
-        self.ncpu = ncpu
-        self.lnprob_touse = lnprob_touse
+        if mode=='linear':
+            self.lnprob_touse = lnproblinear
+        elif mode == 'direct':
+            self.lnprob_touse = lnprobdirect
+        elif mode =='':
+            self.lnprob_touse = lnprob_touse
+        
         if burnin is None:
             self.burnin = int(nsteps*0.1)
         # Load lens table
         self.lens_table = Table.read(self.lens_table_path)
         self.binned = True
         self.output_folder = output_folder
-        
+
         if model not in ['ANN', 'GP']:
             raise ValueError('model not known, only available ANN or GP')
         
@@ -91,10 +104,11 @@ class MCMC:
         else:
             try:
                 self.all_samples, self.all_ln_probs =  self.load_samples_and_ln_probs()
-            except FileNotFoundError:
+            except Exception as e:
+                print(e)
                 self.all_samples, self.all_ln_probs = all_samples, all_ln_probs
 
-
+        self.output_table = os.path.join(self.output_folder, f'Lens_table_{self.model}_gammaMCMC.fits')
         #if burnin is None:
         #      self.burnin = int(self.nsteps * 0.1)
 
@@ -187,6 +201,26 @@ class MCMC:
             
         return np.array(zl_list),np.array(theta_E_r_list),np.array(theta_ap_r_list),np.array(sigma_ap_list),np.array(dd_list),np.array(abs_delta_sigma_ap_list),np.array(abs_delta_dd_list)
         
+
+    def args_linear_fit(self, sub_table):
+        
+        zl_list, gamma_list, gamma_mad_list = [], [],[]
+
+        if len(np.shape(sub_table))==0:
+            sub_table =[sub_table]
+        
+        for row in sub_table:
+            zl = row['zl']
+            gamma = row[f'Gamma_median_{self.model}'] 
+            gamma_mad = row[f'Gamma_MAD_{self.model}']
+
+            # Append parameter values for this row to lists
+            zl_list.append(zl)
+            gamma_list.append(gamma)
+            gamma_mad_list.append(gamma_mad)
+
+        return np.array(zl_list),np.array(gamma_list),np.array(gamma_mad_list)
+    
     def run_mcmc(self,):
 
         print('################ running the mcmc ##################')
@@ -194,7 +228,7 @@ class MCMC:
         # Initialize lists to accumulate samples
         all_samples = []
         all_ln_probs = []
-
+        
         if self.binned:
             print('plot hist zl')
             self.plot_hist_bins()
@@ -203,6 +237,8 @@ class MCMC:
             print(f'Number of elements in the table {len(self.lens_table)}')
             subtables = self.lens_table
 
+        if self.mode in ['linear', 'direct' ]:
+            subtables = [subtables]
 
         for sub_table in subtables:
             
@@ -211,27 +247,35 @@ class MCMC:
 
             #print(len(sub_table['zl']))
             
-            zl_arr, theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr = self.process_subtable(sub_table)
-
+            #zl_arr, theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr = self.process_subtable(sub_table)
+            if self.mode == 'linear':
+                print('Running linear fit')
+                args = self.args_linear_fit(sub_table)
+            else:
+                args = self.process_subtable(sub_table)
             # initial guess for MCMC
             p0 = [np.random.normal(loc=self.x_ini, scale=1e-4, size=self.ndim) for _ in range(self.nwalkers)]
             
             # Set up the backend
             # Don't forget to clear it in case the file already exists
-            filename = os.path.join(self.output_folder, "mcmc_results.h5")
+            filename = os.path.join(self.output_folder, f"mcmc_results{self.mode}.h5")
             backend = emcee.backends.HDFBackend(filename)
             backend.reset(self.nwalkers, self.ndim)
             
-            # with Pool(ncpu) as pool:
-            # initial sampler
-            if self.ndim==1:
-                sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
-                                            args=(theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
-                                            backend=backend)
-            elif self.ndim == 2:
-                sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
-                            args=(zl_arr,theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
-                            backend=backend)
+            with Pool(self.ncpu) as pool:
+                # initial sampler
+                if self.ndim==1:
+                    sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
+                                                #args=(theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
+                                                args = args[1:],
+                                                backend=backend)
+                elif self.ndim == 2:
+                    
+                    sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
+                                args = args,
+                                #(zl_arr,theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
+                                backend=backend)
+                
 
             sampler.run_mcmc(p0, self.nsteps, progress=True)
         
@@ -251,11 +295,11 @@ class MCMC:
             all_ln_probs.append(sampler.get_log_prob())
 
             # Process and plot the combined results for each 'z_l' bin here
-            np.save(os.path.join(self.output_folder,'all_samples.npy'),all_samples)
-            np.save(os.path.join(self.output_folder,'all_ln_probs.npy'),all_ln_probs)
+            np.save(os.path.join(self.output_folder,f'all_samples{self.mode}.npy'),all_samples)
+            np.save(os.path.join(self.output_folder,f'all_ln_probs{self.mode}.npy'),all_ln_probs)
 
-        self.all_samples = all_samples
-        self.all_ln_probs = all_ln_probs
+        self.all_samples = np.array(all_samples)
+        self.all_ln_probs = np.array(all_ln_probs)
 
     def calculate_statistics(self):
         """
@@ -270,12 +314,14 @@ class MCMC:
             # mean_ad_value.append(np.mean(np.abs(column_values - median_value)))
 
         if (self.bin_width is None) and (self.elements_per_bin is None):
-            self.lens_table[f'Gamma_{self.model}'] = median_value
-            self.lens_table[f'Gamma_{self.model}_MAD'] = mad_value
-            self.lens_table.write(os.path.join(self.output_folder,f'Lens_table_{self.model}_gamma.fits'), overwrite =True)
+            self.lens_table[f'Gamma_median_{self.model}'] = median_value
+            self.lens_table[f'Gamma_MAD_{self.model}'] = mad_value
+            self.lens_table.write(self.output_table, overwrite =True)
         else:
             results_table = self.create_out_table( median_value, mean_value,mad_value)
-            results_table.write(os.path.join(self.output_folder,f'Binned_table_{self.model}_gamma.fits'), overwrite =True)
+            results_table.write(self.output_table, overwrite =True)
+
+
         print(f'saved results in {self.output_folder} ')
         return median_value, mean_value, mad_value
 
@@ -353,8 +399,8 @@ class MCMC:
         - all_samples: list of arrays, MCMC samples for each 'z_l' bin.
         - all_ln_probs: list of arrays, ln_probs for each 'z_l' bin.
         """
-        samples_file_path = os.path.join(self.output_folder, 'all_samples.npy')
-        ln_probs_file_path = os.path.join(self.output_folder, 'all_ln_probs.npy')
+        samples_file_path = os.path.join(self.output_folder, f'all_samples{self.mode}.npy')
+        ln_probs_file_path = os.path.join(self.output_folder, f'all_ln_probs{self.mode}.npy')
 
         if os.path.exists(samples_file_path) and os.path.exists(ln_probs_file_path):
             print(f'load data from  {samples_file_path}')
@@ -427,9 +473,12 @@ class MCMC:
 
         if self.all_samples is None and  self.all_ln_probs is None:
             self.run_mcmc()
-        
-        self.plot_post_prob()
-        self.plot_fit()
+        if self.mode in ['linear' , 'direct']: 
+            self.all_samples = np.squeeze(self.all_samples)
+            plot_directfit(self.all_samples, self.output_folder)
+        else:
+            self.plot_post_prob()
+            self.plot_fit()
 
 # Example usage:
 if __name__ == "__main__":

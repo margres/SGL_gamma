@@ -18,7 +18,7 @@ class GP:
         
         self.path_project = path_project
         self.output_folder =  os.path.join(self.path_project,'Output', 'GP')
-        self.output_table = os.path.join(self.output_folder, 'LensTable_dd_GP.fits')
+        self.output_table = os.path.join(self.output_folder, 'Lens_table_GP.fits')
         self.lens_table_path = lens_table_path
         self.lens_table = Table.read(self.lens_table_path)
 
@@ -77,7 +77,7 @@ class GP:
         idx2 = np.abs(np.array(zlist) - z2).argmin()
         if idx1 > idx2:
             print("z1 should be less than z2.")
-            return ,np.nan
+            return np.nan,np.nan
         # Calculate the integral using the trapezoidal rule
         DA_r = c / (1. + z2) * trapz(1.0 / hzlist[idx1:idx2+1], x=zlist[idx1:idx2+1])
         # Calculate the uncertainty by propagation of the uncertainty
@@ -156,5 +156,5 @@ if __name__ == "__main__":
     lens_table_path = os.path.join(path_project, 'Data' , 'LensTable02.fits')
 
     GP = GP(lens_table_path=lens_table_path, path_project=path_project)
-    GP.run()
+    GP.main()
     print("Done!")
