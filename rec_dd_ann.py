@@ -43,7 +43,7 @@ class ANN:
         self.results = self.data[1350:] 
         self.output_folder = os.path.join(self.path_project, 'Output', 'ANN') 
         self.save_model_as = save_model_as
-        self.output_table = os.path.join(self.output_folder, 'LensTable_dd_ANN.fits')
+        self.output_table = os.path.join(self.output_folder, 'SGLTable_ANN.fits')
 
         if not os.path.exists(self.output_folder):
             print(f'making dir {self.output_folder}')
@@ -148,8 +148,8 @@ class ANN:
         
         SL = Table.read(self.lens_table_path)
         dd, dd_e = self.distance_ratio(SL['zl'],SL['zs'])
-        SL['dd_from_ANN'] = dd
-        SL['dd_error_from_ANN'] = dd_e
+        SL['dd_ANN'] = dd
+        SL['dd_error_ANN'] = dd_e
         print(f"Creating table with distance ratio from ANN predictions in { self.output_table}")
         SL.write(self.output_table, overwrite = True)
 

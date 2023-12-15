@@ -8,9 +8,11 @@ from astropy import units as u
 from astropy import constants as const
 import matplotlib.pyplot as plt
 from datetime import datetime
-from mcmc_utils import lnprob, lnprobdirect, lnproblinear, plot_directfit
+from mcmc_utils import lnprob, lnprobdirect, lnproblinear, lnprob_K, lnprob_K_fixbeta
 import random
 from multiprocessing import Pool
+from utils_plot import plot_point_with_fit, plot_directfit
+
 
 random.seed(42)
 
@@ -21,9 +23,9 @@ class MCMC:
                  model='',
                  mode = '',
                  bin_width=None, elements_per_bin=None, nsteps=5000, 
-                 nwalkers=500, ndim=1, ncpu=None,  burnin = None,
+                 nwalkers=500, ndim=None, ncpu=None,  burnin = None,
                  all_ln_probs=None,all_samples=None,
-                 lnprob_touse = lnprob, x_ini=2
+                 lnprob_touse = lnprob, x_ini=[2]
                  ):
         
         self.model = model
@@ -33,21 +35,32 @@ class MCMC:
         self.elements_per_bin = elements_per_bin
         self.nsteps = nsteps
         self.nwalkers = nwalkers
-        self.ndim = ndim
-    
+        self.x_ini = x_ini
 
+        if ndim is None:
+            self.ndim = len(self.x_ini)
+        else:
+            self.ndim = ndim
+    
         if ncpu is None:
             self.ncpu = os.cpu_count()
-        self.x_ini = x_ini
+        
         if mode=='linear':
             self.lnprob_touse = lnproblinear
         elif mode == 'direct':
             self.lnprob_touse = lnprobdirect
         elif mode =='':
             self.lnprob_touse = lnprob_touse
+        elif mode  == 'Koopmans':
+            self.lnprob_touse = lnprob_K
+        elif mode == 'Koopmans_beta':
+            self.lnprob_touse = lnprob_K_fixbeta
         
         if burnin is None:
             self.burnin = int(nsteps*0.1)
+        else:
+            self.burnin = burnin
+
         # Load lens table
         self.lens_table = Table.read(self.lens_table_path)
         self.binned = True
@@ -58,7 +71,7 @@ class MCMC:
         
         if model == 'GP':
             # there are no values for some lenses 
-            self.lens_table = self.lens_table[(self.lens_table['dd_from_GP']>0)] 
+            self.lens_table = self.lens_table[(self.lens_table['dd_GP']>0)] 
             print(f" Using table with {len(self.lens_table)} values")
         # Constants
         #self.c = c.to('km/s').value
@@ -71,7 +84,7 @@ class MCMC:
             self.binned = False
             if self.output_folder is None:
                 self.output_folder = os.path.join(path_project, 'Output',
-                                                  f"MCMC_{self.model}_singular_obj_nwalkers_{nwalkers}_nsteps_{nsteps}_no_burnin")
+                                                  f"MCMC_{self.model}_singular_obj_nw_{nwalkers}_ns_{nsteps}_no_burnin")
         if bin_width is not None:
             #fixed
             if self.output_folder is None:
@@ -85,7 +98,7 @@ class MCMC:
             #adaptive
             if self.output_folder is None:
                 self.output_folder = os.path.join(path_project, 'Output',
-                                                  f"MCMC_{self.model}_adaptive_{self.elements_per_bin}_nwalkers_{nwalkers}_nsteps_{nsteps}_no_burnin")
+                                                  f"MCMC_{self.model}_adaptive_{self.elements_per_bin}_nw_{nwalkers}_ns_{nsteps}_no_burnin")
             self.bin_edges = np.percentile(self.lens_table['zl'], np.linspace(0, 100, self.elements_per_bin + 1))
 
         if self.binned:
@@ -103,12 +116,12 @@ class MCMC:
             self.all_samples, self.all_ln_probs = all_samples, all_ln_probs
         else:
             try:
-                self.all_samples, self.all_ln_probs =  self.load_samples_and_ln_probs()
+                self.all_samples =  self.load_samples_and_ln_probs()
             except Exception as e:
                 print(e)
                 self.all_samples, self.all_ln_probs = all_samples, all_ln_probs
 
-        self.output_table = os.path.join(self.output_folder, f'Lens_table_{self.model}_gammaMCMC.fits')
+        self.output_table = os.path.join(self.output_folder, f'SGL_{self.model}_gammaMCMC.fits')
         #if burnin is None:
         #      self.burnin = int(self.nsteps * 0.1)
 
@@ -154,7 +167,7 @@ class MCMC:
         return results_table
     
     def get_subtable(self):
-         # Initialize an empty list to store subtables for each bin
+        # Initialize an empty list to store subtables for each bin
         subtables = []
         # Loop through the bins
         for i in range(len(self.bin_edges) - 1):
@@ -183,13 +196,12 @@ class MCMC:
             theta_E_r = row['theta_E'] * u.arcsec.to('radian')
             theta_ap_r = row['theta_ap'] * u.arcsec.to('radian')
             sigma_ap = row['sigma_ap']
-            dd = row[f'dd_from_{self.model}']#['ddH']
-
+            dd = row[f'dd_{self.model}']
         
             # uncertainties, global values
-            abs_delta_sigma_ap = row['sigma_ap_err']#['sigma_err']
-            abs_delta_dd = row[f'dd_error_from_{self.model}']#['ddH_err']
-            
+            abs_delta_sigma_ap = row['sigma_ap_err']
+            abs_delta_dd = row[f'dd_error_{self.model}']
+
             # Append parameter values for this row to lists
             zl_list.append(zl)
             theta_E_r_list.append(theta_E_r)
@@ -236,6 +248,8 @@ class MCMC:
         else:
             print(f'Number of elements in the table {len(self.lens_table)}')
             subtables = self.lens_table
+            if self.mode in ['Koopmans', 'Koopmans_beta'] :
+                subtables =  [subtables]
 
         if self.mode in ['linear', 'direct' ]:
             subtables = [subtables]
@@ -253,6 +267,8 @@ class MCMC:
                 args = self.args_linear_fit(sub_table)
             else:
                 args = self.process_subtable(sub_table)
+
+            
             # initial guess for MCMC
             p0 = [np.random.normal(loc=self.x_ini, scale=1e-4, size=self.ndim) for _ in range(self.nwalkers)]
             
@@ -264,10 +280,12 @@ class MCMC:
             
             with Pool(self.ncpu) as pool:
                 # initial sampler
-                if self.ndim==1:
+                if self.ndim in [1,4]:
+                    if self.ndim == 1:
+                        args = args[1:]
                     sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
                                                 #args=(theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
-                                                args = args[1:],
+                                                args = args,
                                                 backend=backend)
                 elif self.ndim == 2:
                     
@@ -275,6 +293,7 @@ class MCMC:
                                 args = args,
                                 #(zl_arr,theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
                                 backend=backend)
+
                 
 
             sampler.run_mcmc(p0, self.nsteps, progress=True)
@@ -296,7 +315,7 @@ class MCMC:
 
             # Process and plot the combined results for each 'z_l' bin here
             np.save(os.path.join(self.output_folder,f'all_samples{self.mode}.npy'),all_samples)
-            np.save(os.path.join(self.output_folder,f'all_ln_probs{self.mode}.npy'),all_ln_probs)
+            #np.save(os.path.join(self.output_folder,f'all_ln_probs{self.mode}.npy'),all_ln_probs)
 
         self.all_samples = np.array(all_samples)
         self.all_ln_probs = np.array(all_ln_probs)
@@ -335,7 +354,6 @@ class MCMC:
         plt.show(block=False)
 
     def plot_post_prob(self):
-
 
         median_x, mean_x, mad_x = self.calculate_statistics()
         
@@ -402,83 +420,60 @@ class MCMC:
         samples_file_path = os.path.join(self.output_folder, f'all_samples{self.mode}.npy')
         ln_probs_file_path = os.path.join(self.output_folder, f'all_ln_probs{self.mode}.npy')
 
-        if os.path.exists(samples_file_path) and os.path.exists(ln_probs_file_path):
+        if os.path.exists(samples_file_path): #and os.path.exists(ln_probs_file_path):
             print(f'load data from  {samples_file_path}')
             all_samples = np.load(samples_file_path, allow_pickle=True)
-            all_ln_probs = np.load(ln_probs_file_path, allow_pickle=True)
-            return all_samples, all_ln_probs
+            #all_ln_probs = np.load(ln_probs_file_path, allow_pickle=True)
+
+            return all_samples#, all_ln_probs
         else:
             raise FileNotFoundError(f"Files not found in the specified folder: {self.output_folder}")
-           
-    def plot_fit(self ):
 
-        '''
-        # Data
-        #x, y =xcenters, median_x_values
-        #y_err = mad_x_list #SL['mad_mean_Gamma']
-        '''
+
+    def plot_results(self):
     
         # Data
         if self.binned:
             x = self.xcenters
         else: 
             x = self.lens_table['zl']
+
         y, _, y_err = self.calculate_statistics()
-
-        #print(y_err)
-
-        # Assuming SL['zl'], SL['median_Gamma'], and SL['mad_median_Gamma'] are your data arrays
-        fig = plt.figure(dpi=100)
-        # Perform a weighted linear fit
-        coefficients = np.polyfit(x, y, 1, w=1/np.array(y_err))
-        m = coefficients[0]  # Slope of the line
-        b = coefficients[1]  # Intercept of the line
-        # Generate points for the best fit line
-        xfit = np.linspace(0, 1, 100)
-        yfit = m * xfit + b
-        # Calculate standard deviation of residuals
-        residuals = y - (m * x + b)
-        std_residuals = np.std(residuals)
-        # Calculate upper and lower errorbars (3-sigma)
-        upper_error = yfit + 1 * std_residuals
-        lower_error = yfit - 1 * std_residuals
-
-        # Plot the data and the best fit line
-        #if self.binned:
-        #    plt.errorbar(self.lens_table['zl'], self.lens_table['median_Gamma'],
-        #                 yerr=self.lens_table['mad_median_Gamma'], fmt = '.', 
-        #                 color='r', alpha=0.3, label=f'gamma from mcmc with {self.model}')
-        plt.plot(xfit, yfit, 'k--', lw=1, label=r'Gamma best fit: $\rm y = \rm %0.2fx + %0.2f$'%(m,b))
-        plt.fill_between(xfit, upper_error, lower_error, alpha=0.1,color="k",edgecolor="none")
-        
+    
         if self.bin_width is not None:
             label = f'{self.model} fixed {self.bin_width}  bin'
         if self.elements_per_bin is not None:
              label = f'{self.model} adaptive # {self.elements_per_bin} per bin'
         else:
             label = f'{self.model} singular element'
-        
-        plt.errorbar(x, y, yerr=y_err, fmt='.', markersize=8, capsize=2, elinewidth=2,label=f'{label}')
-        #plt.ylim(1.75,2.35)
-        # plt.ylim(1.5,2.8)
-        plt.xlabel('z$_L$')
-        plt.ylabel(r'$\gamma$')
-        fig.legend( loc='upper center', bbox_to_anchor=(0.5, 1.1))
-        #plt.legend()
-        plt.savefig(os.path.join(self.output_folder,'linear_fit_gamma.png'), 
-                    transparent=False, facecolor='white', bbox_inches='tight' )
-        plt.show(block=False)
+
+
+        plot_point_with_fit(x, y, y_err, 
+            x_label='z$_L$',
+            y_label = '$\gamma$',
+            plot_name = 'linear_fit_gamma.png',
+            label = '', 
+            output_folder=self.output_folder)
+
 
     def main(self):
-
-        if self.all_samples is None and  self.all_ln_probs is None:
+        
+        #run mcmc or use stored results
+        if self.all_samples is None:
             self.run_mcmc()
+
+        # different plottings
         if self.mode in ['linear' , 'direct']: 
+            param_names = [r'\gamma_0', r'\gamma_1']
             self.all_samples = np.squeeze(self.all_samples)
-            plot_directfit(self.all_samples, self.output_folder)
+            plot_directfit(self.all_samples, param_names, output_folder = self.output_folder)
+
+        elif  self.mode == 'Koopmans_beta':
+            param_names = [r'$\gamma_0$', r'$\gamma_1$',r'$\delta_0$',r'$\delta_1$']
+            
         else:
             self.plot_post_prob()
-            self.plot_fit()
+            self.plot_results()
 
 # Example usage:
 if __name__ == "__main__":

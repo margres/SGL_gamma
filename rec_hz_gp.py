@@ -5,7 +5,7 @@ import os
 import matplotlib.pyplot as plt
 import random
 from gapp import gp, covariance
-from scipy.integrate import quad,trapz
+from rec_fsolve import Dls_reconstruct_z 
 
 random.seed(42)
 
@@ -18,7 +18,7 @@ class GP:
         
         self.path_project = path_project
         self.output_folder =  os.path.join(self.path_project,'Output', 'GP')
-        self.output_table = os.path.join(self.output_folder, 'Lens_table_GP.fits')
+        self.output_table = os.path.join(self.output_folder, 'SGLTable_GP.fits')
         self.lens_table_path = lens_table_path
         self.lens_table = Table.read(self.lens_table_path)
 
@@ -65,28 +65,7 @@ class GP:
     
         plt.show(block=False)
 
-
-    def Dls_reconstruct_z(self, z1, z2, zlist, hzlist, sighzlist):
-        c = 299792.458 # km/s
-        # Check if z1 and z2 are within the bounds of zlist
-        if z1 < min(zlist) or z2 > max(zlist):
-            print("z1 or z2 is out of the bounds, saving as -1")
-            return np.nan, np.nan
-        # Find the closest indices in zlist for z1 and z2
-        idx1 = np.abs(np.array(zlist) - z1).argmin()
-        idx2 = np.abs(np.array(zlist) - z2).argmin()
-        if idx1 > idx2:
-            print("z1 should be less than z2.")
-            return np.nan,np.nan
-        # Calculate the integral using the trapezoidal rule
-        DA_r = c / (1. + z2) * trapz(1.0 / hzlist[idx1:idx2+1], x=zlist[idx1:idx2+1])
-        # Calculate the uncertainty by propagation of the uncertainty
-        int_cell = np.abs(-1. / np.array(hzlist[idx1:idx2+1]) ** 2.0 * np.array(sighzlist[idx1:idx2+1]))
-        int_z = trapz(int_cell, zlist[idx1:idx2+1])
-        DA_sig_r = c / (1. + z2) * int_z
-        return DA_r, DA_sig_r
-
-    def calculate_uncertainty(self, a, b, a_err, b_err):
+    def calculate_dd(self, a, b, a_err, b_err):
         """
         Calculate the uncertainty of the division of two independent quantities with uncertainties.
         Parameters:
@@ -121,19 +100,30 @@ class GP:
         hzrec = rec1[:, 1]
         sighzrec = rec1[:, 2]
 
+
         dd_CC_GP = []
         dd_CC_GP_err = []
+ 
+   
         for index, row in enumerate(self.lens_table):
-            Dls = self.Dls_reconstruct_z(row['zl'], row['zs'], zrec, hzrec, sighzrec)[0]
-            Ds = self.Dls_reconstruct_z(0.0, row['zs'], zrec, hzrec, sighzrec)[0]
-            Dls_err = self.Dls_reconstruct_z(row['zl'], row['zs'], zrec, hzrec, sighzrec)[1]
-            Ds_err = self.Dls_reconstruct_z(0.0, row['zs'], zrec, hzrec, sighzrec)[1]
-            dd_CC_GP.append(self.calculate_uncertainty(Dls, Ds, Dls_err, Ds_err)[0])
-            dd_CC_GP_err.append(self.calculate_uncertainty(Dls, Ds, Dls_err, Ds_err)[1])
+
+            dls_tmp = Dls_reconstruct_z(row['zl'], row['zs'], zrec, hzrec, sighzrec)
+            ds_tmp =  Dls_reconstruct_z(0.0, row['zs'], zrec, hzrec, sighzrec)
+
+            Dls = dls_tmp [0] 
+            Ds = ds_tmp[0]
+            Dls_err = dls_tmp[1]
+            Ds_err = ds_tmp[1]
+
+            dd_CC_GP_tmp = self.calculate_dd(Dls, Ds, Dls_err, Ds_err)
+            dd_CC_GP.append(dd_CC_GP_tmp[0])
+            dd_CC_GP_err.append(dd_CC_GP_tmp[1])
+
 
         print(f"Saving distance reconstruction in {os.path.join(self.output_folder,f'Lens_table_GP.fits')}")
-        self.lens_table['dd_from_GP'] = dd_CC_GP
-        self.lens_table['dd_error_from_GP'] = dd_CC_GP_err
+        self.lens_table['dd_GP'] = dd_CC_GP
+        self.lens_table['dd_error_GP'] = dd_CC_GP_err
+
         self.lens_table.write(self.output_table, overwrite =True)
 
        

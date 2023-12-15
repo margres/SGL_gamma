@@ -3,12 +3,13 @@ import numpy as np
 from astropy.constants import c
 from scipy.integrate import quad, trapz
 from scipy.stats import median_abs_deviation
-from getdist import plots, MCSamples
 import matplotlib.pyplot as plt
 import os
+import math
+
 c = c.to('km/s').value
 
-def f_gama(x):
+def f_gamma(x):
         a = -1 / np.sqrt(np.pi)
         b = ((5 - 2 * x) * (1 - x)) / (3 - x)
         c = gamma(x - 1) / gamma(x - (3 / 2))
@@ -22,11 +23,13 @@ def lnprior(x):
         return 0.0
     return -np.inf
 
+
+
 def d_th(x,theta, theta_ap, sigma):
 
     a = (theta*c**2) / (4 * np.pi * sigma**2)
     
-    return a* np.power((theta / theta_ap), x-2) / f_gama(x)
+    return a* np.power((theta / theta_ap), x-2) / f_gamma(x)
 
 
 def solve_for_gamma(x, theta, theta_ap, sigma, dd):
@@ -38,10 +41,19 @@ def chi_2(x, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
     denom_obs = (abs_delta_dd)**2
     return num / (denom_obs + denom_th)
 
-
+'''
 def lnlike( x, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
     return np.exp(-chi_2(x, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd) * 0.5)
+'''
 
+
+def lnlike(x, *args):
+   
+    if len(args) == 8:
+        return np.exp(-chi_2_K(x, *args) * 0.5)
+    else:
+        return np.exp(-chi_2(x, *args) * 0.5)
+    
 def lnprob( x, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
     lp = lnprior(x)
     if np.any(~np.isfinite(lp)):
@@ -122,63 +134,88 @@ def lnproblinear(theta, x, y, yerr):
     return total_lnlike
 
 
-# Calculate the best-fit (mean/median) values and uncertainties
-def get_param_stats(samples, param_index):
-    """
-    Calculate the median and the 68% confidence interval for a given parameter from all walkers.
+#### Koopmans lens model #####
 
-    Parameters:
-    samples (numpy.ndarray): MCMC samples array with shape (walkers, steps, parameters).
-    param_index (int): The index of the parameter in the samples array.
-
-    Returns:
-    tuple: Median, lower bound, and upper bound of the 68% confidence interval.
-    """
-    # Flatten the first two dimensions (walkers, steps)
-    flat_samples = samples.reshape(-1, samples.shape[-1])
-
-    median = np.median(flat_samples[:, param_index])
-    err_lower = median-np.percentile(flat_samples[:, param_index], 16)
-    err_upper = np.percentile(flat_samples[:, param_index], 84)-median
-    return median, err_lower, err_upper
-
-def plot_directfit(samples, output_folder=None):
-
-    # If you have parameter names and want to include them in the plot
-    param_names = [r'$\gamma_0$', r'$\gamma_1$']
-    param_labels = ['\gamma_0', '\gamma_1']
-
-    median_list = [] # median, err_lower, err_upper 
-    for i in range(samples.shape[-1]):  # Loop over parameters
-        median_list.append(get_param_stats(samples, i))
+def chi_2_K(x,theta, theta_ap, sigma,dd,abs_delta_sigma_ap,abs_delta_dd,delta, beta):
     
-    print(samples.shape)
-
-
-    # Convert your samples to MCSamples object
-    mcmc_samples = MCSamples(samples=samples, names=param_names, labels=param_labels)
-
-    # Initialize the GetDist plotter
-    g = plots.getSubplotPlotter(width_inch=10)
-    g.settings.title_limit_fontsize = 15
-    g.settings.axes_fontsize = 15
-    g.settings.axes_labelsize = 15
-
-    # Triangle plot with filled contours
-    g.triangle_plot(mcmc_samples, param_names, filled=True, title_limit=1)
+    num = solve_for_gamma_K(x,theta, theta_ap, sigma,dd,delta, beta)**2
+    denom_th = 4*(abs_delta_sigma_ap/sigma)**2 + ((1-x)*0.05)**2 * d_th_prime(x,theta, theta_ap, sigma,delta, beta)
+    denom_obs =  (abs_delta_dd)**2
     
-    for ax1 in g.subplots[:,0]:
-        ax1.axvline(median_list[0][0], color='red', ls='--')
+    return num/(denom_obs + denom_th)
 
-    ax2 = g.subplots[1, 1]
-    ax2.axvline(median_list[1][0], color='red', ls='--')
+def f_prime(gamma_val, delta, beta):
 
-    ax2 = g.subplots[1, 0]
-    ax2.axhline(median_list[1][0], color='red', ls='--')
+    # Adding the missing term 1 / (2 * sqrt(pi))
+    prefactor = 1. / (2. * math.sqrt(math.pi))
+    term1 = (gamma_val + delta - 5.) * (gamma_val + delta - 2. - 2. * beta) / (delta - 3.)
+    term2_numerator = gamma((gamma_val + delta - 2.) / 2.) * gamma((gamma_val + delta) / 2.)
+    term2_denominator = gamma((gamma_val + delta) / 2.) * gamma((gamma_val + delta - 3.) / 2.) - beta * gamma((gamma_val + delta - 2.) / 2.) * gamma((gamma_val + delta - 1.) / 2.)
+    term3 = gamma((delta - 1.) / 2.) * gamma((gamma_val - 1.) / 2.) / (gamma(delta / 2.) * gamma(gamma_val / 2.))
+    
+    return prefactor * term1 * (term2_numerator / term2_denominator) * term3
 
-    if output_folder is not None:
-        # Optionally, save the plot
-        plt.savefig(os.path.join(output_folder , "gamma_evo_GP.png"))
+def solve_for_gamma_K(x,theta, theta_ap, sigma,dd,delta, beta):
+    
+    return dd - d_th_prime(x,theta, theta_ap, sigma,delta, beta)
 
-    # Show the plot
-    plt.show(block=False)
+def d_th_prime(x,theta, theta_ap, sigma,delta, beta):
+    
+    a = (theta*c**2) / (4 * np.pi * sigma**2)
+    
+    return a* np.power((theta / theta_ap), x-2) / f_prime(x, delta, beta)
+
+
+def lnprob_K(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
+
+    g0, g1, delta, beta = g
+    total_lnlike = 0
+
+    # Iterate over each row in the fits table
+    for i in range(len(theta)):
+        x = gamma_z1(g0, g1, zl[i])
+        f_g = f_prime(x, delta, beta)
+
+        # Check if x, delta, and beta are within the desired range
+        if not (1.2 < x < 2.8 and 1.8 < delta < 2.8 and -3. < beta < 1. and f_g>0.):
+            return -np.inf
+
+        # Check if f_prime result is NaN
+        f_prime_result = f_prime(x, delta, beta)
+        if np.isnan(f_prime_result):
+            return -np.inf
+
+        # Compute the log-likelihood
+        total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i], 
+                                      abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
+
+    return total_lnlike
+
+
+def lnprob_K_fixbeta(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
+    g0, g1, d0,d1 = g
+    beta = 0.18
+    total_lnlike = 0
+
+    # Iterate over each row in the fits table
+    for i in range(len(theta)):
+        x = gamma_z1(g0, g1, zl[i])
+        delta = delta_z1(d0,d1,zl[i])
+        f_g = f_prime(x, delta, beta)
+        # Check if x, delta, and beta are within the desired range
+        if not (1.2 < x < 2.8 and 1.2 < delta < 2.8  and f_g>0.):
+            return -np.inf
+
+        # Check if f_prime result is NaN
+        f_prime_result = f_prime(x, delta, beta)
+        if np.isnan(f_prime_result):
+            return -np.inf
+
+        # Compute the log-likelihood
+        total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i], 
+                                      abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
+    return total_lnlike
+
+
+def delta_z1(d0,d1,z):
+    return d0+d1*z
