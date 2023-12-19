@@ -56,7 +56,7 @@ def wmean_and_error(path_ann, path_gp, column = 'dd'):
 
     return wmean_list, wmean_error_list
 
-def combined_dd(path_table_GP, path_table_ANN, output_folder, return_table=True):
+def combined_dd(path_table_GP, path_table_ANN, output_folder, return_table_path=True):
 
     if not os.path.exists(output_folder):
         print(f'making dir {output_folder}')
@@ -69,12 +69,12 @@ def combined_dd(path_table_GP, path_table_ANN, output_folder, return_table=True)
     wmean_list, wmean_error_list = wmean_and_error(path_table_ANN, path_table_GP)
     
     table_GP['dd_wmean'] = np.array(wmean_list)
-    table_GP['dd_wmean_error'] = np.array(wmean_error_list)
+    table_GP['dd_error_wmean'] = np.array(wmean_error_list)
 
     table_GP.write(os.path.join(output_folder, 'SGLTable_combined_ANNGP.fits'), overwrite = True)
      
-    if return_table:
-        return table_GP
+    if return_table_path:
+        return os.path.join(output_folder, 'SGLTable_combined_ANNGP.fits')
 
 if __name__ == "__main__":
 

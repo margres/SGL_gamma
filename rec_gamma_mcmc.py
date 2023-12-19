@@ -23,10 +23,11 @@ class MCMC:
                  model='',
                  mode = '',
                  bin_width=None, elements_per_bin=None, nsteps=5000, 
-                 nwalkers=500, ndim=None, ncpu=None,  #burnin = None,
+                 nwalkers=500, ndim=None, ncpu=None,  burnin = None,
                  all_ln_probs=None,all_samples=None,
                  lnprob_touse = lnprob, x_ini=[2],
-                 nsteps_per_checkpoint =  2000
+                 nsteps_per_checkpoint =  2000,
+                 checkpoint=False
                  ):
         
         self.model = model
@@ -38,7 +39,7 @@ class MCMC:
         self.nwalkers = nwalkers
         self.x_ini = x_ini
         self.nsteps_per_checkpoint = nsteps_per_checkpoint
-
+        self.checkpoint = checkpoint
         if ndim is None:
             self.ndim = len(self.x_ini)
         else:
@@ -63,18 +64,18 @@ class MCMC:
             self.lnprob_touse = lnprob_K_5D
         else:
             raise ValueError('mode not available ')
-        '''
+        
         if burnin is None:
             self.burnin = int(nsteps*0.1)
         else:
             self.burnin = burnin
-        '''
+
         # Load lens table
         self.lens_table = Table.read(self.lens_table_path)
         self.binned = True
         self.output_folder = output_folder
 
-        if model not in ['ANN', 'GP']:
+        if model not in ['ANN', 'GP', 'wmean']:
             raise ValueError('model not known, only available ANN or GP')
         
         if model == 'GP':
@@ -92,12 +93,12 @@ class MCMC:
             self.binned = False
             if self.output_folder is None:
                 self.output_folder = os.path.join(path_project, 'Output',
-                                                  f"MCMC_{self.model}_singular_obj_nw_{nwalkers}_ns_{nsteps}")
+                                                  f"MCMC_{self.model}_singular_obj_nw_{nwalkers}_ns_{nsteps}_no_burnin")
         if bin_width is not None:
             #fixed
             if self.output_folder is None:
                 self.output_folder = os.path.join(path_project,'Output',
-                                                  f"MCMC_{self.model}_fixed_{self.bin_width}_nwalkers_{nwalkers}_nsteps_{nsteps}")
+                                                  f"MCMC_{self.model}_fixed_{self.bin_width}_nwalkers_{nwalkers}_nsteps_{nsteps}_no_burnin")
             min_z_l = self.lens_table['zl'].min()
             max_z_l = self.lens_table['zl'].max()
             self.bin_edges = np.arange(min_z_l, max_z_l + self.bin_width, self.bin_width)
@@ -106,7 +107,7 @@ class MCMC:
             #adaptive
             if self.output_folder is None:
                 self.output_folder = os.path.join(path_project, 'Output',
-                                                  f"MCMC_{self.model}_adaptive_{self.elements_per_bin}_nw_{nwalkers}_ns_{nsteps}")
+                                                  f"MCMC_{self.model}_adaptive_{self.elements_per_bin}_nw_{nwalkers}_ns_{nsteps}_no_burnin")
             self.bin_edges = np.percentile(self.lens_table['zl'], np.linspace(0, 100, self.elements_per_bin + 1))
 
         if self.binned:
@@ -303,30 +304,43 @@ class MCMC:
                                 backend=backend)
                 else:
                     raise ValueError('no sampler available for this number of x_ini')
+            if self.checkpoint:    
+                # Checkpoint system
+                for _ in range(0, self.nsteps, self.nsteps_per_checkpoint):
+                    sampler.run_mcmc(p0, self.nsteps_per_checkpoint, store=True,progress=True)
+
+                    # Evaluate the current state of the chain
+                    try:
+                        tau = sampler.get_autocorr_time(tol=0)
+                        burnin = int(2 * np.max(tau))
+                        thin = 1
+                        print(f"Checkpoint: tau={tau}, burnin={burnin}, thin={thin}")
+
+                        # If chain is long enough, break
+                        if sampler.iteration / np.max(tau) > 50:
+                            print("Sufficient chain length achieved. Stopping run.")
+                            break
+                    except emcee.autocorr.AutocorrError as e:
+                        # Handle the case where autocorrelation time can't be reliably estimated
+                        print(str(e))
+                    p0 = sampler.get_last_sample()
+
+            else:
+                sampler.run_mcmc(p0, self.nsteps, progress=True)
+            
+                # only take one for each group of 10 for correlations between samples
+                thin = 1
                 
-            # Checkpoint system
-            for _ in range(0, self.nsteps, self.nsteps_per_checkpoint):
-                sampler.run_mcmc(p0, self.nsteps_per_checkpoint, store=True,progress=True)
-
-                # Evaluate the current state of the chain
-
-                try:
-                    tau = sampler.get_autocorr_time(tol=0)
-                    burnin = int(2 * np.max(tau))
-                    thin = 1
-                    print(f"Checkpoint: tau={tau}, burnin={burnin}, thin={thin}")
-
-                    # If chain is long enough, break
-                    if sampler.iteration / np.max(tau) > 50:
-                        print("Sufficient chain length achieved. Stopping run.")
-                        break
-                except emcee.autocorr.AutocorrError as e:
-                    # Handle the case where autocorrelation time can't be reliably estimated
-                    print(str(e))
-                p0 = sampler.get_last_sample()
+                if self.burnin is None:
+                    # autocorrelation check
+                    tau = sampler.get_autocorr_time()
+                    # Suggested burn-in
+                    self.burnin = int(2 * np.max(tau))
+                    # Suggested thinning
+                    thin = int(0.5 * np.min(tau))
 
             # Append the samples for this 'z_l' bin to the list of all samples
-            all_samples.append(sampler.get_chain(discard=burnin, thin=thin))
+            all_samples.append(sampler.get_chain(discard=self.burnin, thin=thin))
             all_ln_probs.append(sampler.get_log_prob())
 
             # Process and plot the combined results for each 'z_l' bin here
@@ -432,8 +446,8 @@ class MCMC:
         - all_samples: list of arrays, MCMC samples for each 'z_l' bin.
         - all_ln_probs: list of arrays, ln_probs for each 'z_l' bin.
         """
-        samples_file_path = os.path.join(self.output_folder, f'all_samples_{self.mode}.npy')
-        ln_probs_file_path = os.path.join(self.output_folder, f'all_ln_probs_{self.mode}.npy')
+        samples_file_path = os.path.join(self.output_folder, f'all_samples{self.mode}.npy')
+        ln_probs_file_path = os.path.join(self.output_folder, f'all_ln_probs{self.mode}.npy')
 
         if os.path.exists(samples_file_path): #and os.path.exists(ln_probs_file_path):
             print(f'load data from  {samples_file_path}')

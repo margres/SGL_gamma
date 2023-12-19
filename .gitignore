@@ -4,6 +4,7 @@
 *$py.class
 *ipynb
 Output/MCMC*
+Output*
 Output/*
 *all_ln_probs*
 *.npy
