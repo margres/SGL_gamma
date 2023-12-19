@@ -48,35 +48,37 @@ def plot_point_with_fit(x, y, y_err,
     if output_folder is not None:
         plt.savefig(os.path.join(output_folder, plot_name),
                     transparent=False, facecolor='white', bbox_inches='tight')
-    plt.show(block=False)
-
-# Example usage:
-# Assuming you have x, y, and y_err data arrays and other parameters
-# plot_fit(x, y, y_err, bin_width=0.1, model='YourModel', output_folder='path/to/output')
+    #plt.show(block=False)
 
 
-# Calculate the best-fit (mean/median) values and uncertainties
-def get_param_stats(samples, param_index):
+
+def calculate_marginal_median_and_mad(samples):
     """
-    Calculate the median and the 68% confidence interval for a given parameter from all walkers.
+    Calculate the marginal median and median absolute deviation for each parameter.
 
-    Parameters:
-    samples (numpy.ndarray): MCMC samples array with shape (walkers, steps, parameters).
-    param_index (int): The index of the parameter in the samples array.
-
-    Returns:
-    tuple: Median, lower bound, and upper bound of the 68% confidence interval.
+    :param samples: A numpy array of MCMC samples with shape (nwalkers, nsteps, ndim)
+    :return: Two numpy arrays containing the marginal medians and MADs for each parameter
     """
-    # Flatten the first two dimensions (walkers, steps)
-    flat_samples = samples.reshape(-1, samples.shape[-1])
+    # Reshape the samples to a 2D array (nwalkers*nsteps, ndim)
+    nwalkers, nsteps, ndim = samples.shape
+    flattened_samples = samples.reshape(-1, ndim)
 
-    median = np.median(flat_samples[:, param_index])
-    err_lower = median-np.percentile(flat_samples[:, param_index], 16)
-    err_upper = np.percentile(flat_samples[:, param_index], 84)-median
-    return median, err_lower, err_upper
+    # Calculate marginal medians
+    marginal_medians = np.median(flattened_samples, axis=0)
 
-def setGetDist(samples, param_names, param_labels, output_folder = None):
+    # Calculate median absolute deviations
+    mad = np.median(np.abs(flattened_samples - marginal_medians), axis=0)
 
+    return marginal_medians, mad
+
+def add_dollar_signs(param_labels):
+    return [f"${label}$" for label in param_labels]
+
+def plot_GetDist(samples, param_labels, output_folder ):
+
+    marginal_medians, mads = calculate_marginal_median_and_mad(samples)
+
+    param_names = add_dollar_signs(param_labels)
 
     # Convert your samples to MCSamples object
     mcmc_samples = MCSamples(samples=samples, names=param_names, labels=param_labels)
@@ -88,39 +90,34 @@ def setGetDist(samples, param_names, param_labels, output_folder = None):
     g.settings.axes_labelsize = 15
 
     # Triangle plot with filled contours
-    g.triangle_plot(mcmc_samples, param_names, filled=True, title_limit=1)
+    g.triangle_plot(mcmc_samples, param_names, filled=True)
 
+    # Add markers and lines for best fit values
+    n_params = len(marginal_medians)
+    for i, val in enumerate(marginal_medians):
+        # Add red dashed line to 1D subplots if the subplot exists
+        if g.subplots[i, i] is not None:
+            g.subplots[i, i].axvline(val, color='red', ls='--')
+
+        # Add lines to 2D subplots if the subplot exists
+        for j in range(n_params):
+            if j != i:
+                if g.subplots[i, j] is not None:
+                    g.subplots[i, j].axhline(val, color='red', ls='--')
+                if g.subplots[j, i] is not None:
+                    g.subplots[j, i].axvline(val, color='red', ls='--')
+
+    # Manually set titles for the 1D marginal distributions
+    for i, param_name in enumerate(param_names):
+        median = marginal_medians[i]
+        mad = mads[i]
+        title = f"{param_name} = {median:.3f} ± {mad:.3f}"
+        ax = g.subplots[i, i]
+        ax.set_title(title, fontsize=12)
+
+    
     if output_folder is not None:
         # Optionally, save the plot
-        plt.savefig(os.path.join(output_folder , "ProbDist.png"))
+        plt.savefig(os.path.join(output_folder , "ProbDist.png"), bbox_inches="tight")
 
-    # Show the plot
-    plt.show(block=False)
-
-
-def plot_directfit(samples, param_names, output_folder=None):
-
-    # If you have parameter names and want to include them in the plot
-    param_labels = param_names #['\gamma_0', '\gamma_1']
-
-    median_list = [] # median, err_lower, err_upper 
-    for i in range(samples.shape[-1]):  # Loop over parameters
-        median_list.append(get_param_stats(samples, i))
-    
-    print(samples.shape)
-
-    setGetDist(samples, param_names, param_labels, output_folder)
-
-    '''
-    for ax1 in g.subplots[:,0]:
-        ax1.axvline(median_list[0][0], color='red', ls='--')
-
-    ax2 = g.subplots[1, 1]
-    ax2.axvline(median_list[1][0], color='red', ls='--')
-
-    ax2 = g.subplots[1, 0]
-    ax2.axhline(median_list[1][0], color='red', ls='--')
-    '''
-
-
-
+   #plt.show( block=False)

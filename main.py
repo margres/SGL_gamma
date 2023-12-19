@@ -3,75 +3,112 @@ from rec_dd_ann import ANN
 from rec_gamma_mcmc import MCMC
 import os
 from rec_fsolve import add_fsolve_table
+from combined_gamma import combined_dd
 
 path_project='/home/grespanm/github/SLcosmological_parameters/SGL_gamma/'
 lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.fits')
+nwalkers = 50
+nsteps = 100
+
+
 ## run the GP
 print( '\n ************** running the GP reconstruction ************** \n')
 GP = GP(lens_table_path =lens_table_path, path_project=path_project)
 #GP.main()
-#print('Done!')
 #add_fsolve_table(path_project , GP.output_table)
+print('Done! \n')
 
-print(f" \n Using distance reconstruction from {GP.output_table} \n")
-## run the mcmc for fixed bins for the GP results 
-mcmc_gp = MCMC(lens_table_path=GP.output_table , path_project = path_project, 
-            model='GP', nwalkers =50, nsteps = 100)
-mcmc_gp.main()
+#### run the ann 
+print(' \n  ************** running the ANN reconstruction ************** ' )
+ANN = ANN(path_project=path_project, lens_table_path=lens_table_path)
+#ANN.main()
+#add_fsolve_table(path_project , GP.output_table)
+print('Done! \n')
 
+print('Calculating weighted mean of dd from GP and ANN')
 
-if False:
-    #### run the ann
+combined_dd(GP.output_table, ANN.output_table, 
+            output_folder= os.path.join(path_project, 'Output', 'Combined_dd' ) )
 
-    print('************** running the ANN reconstruction **************')
-    ANN = ANN(path_project=path_project, lens_table_path=lens_table_path)
-    ANN.main()
-    print('Done!')
+for name_model, table  in zip(['GP', 'ANN'],[GP.output_table, ANN.output_table ]) :
     
-    #### combine the results in one table
+    print (f' \n  ************** MCMC for {name_model} ************** \n ')
 
-    ANN.output_table
-
-    ## run the mcmc for fixed bins fro the ANN results
-    mcmc_instance_binned = MCMC(lens_table_path=ANN.output_table , model='ANN', bin_width=0.1)
+    print(f" \n ************** gamma from {table} for every value ************** \n")
+    ## run the mcmc 
+    mcmc = MCMC(lens_table_path = table , path_project = path_project, 
+                model=name_model, nwalkers = nwalkers, nsteps = nsteps)
+    mcmc.main()
+    print('Done! \n')
+    
+    print(f" \n ************** gamma from {table} for fixed bins ************** \n")
+    ## run the mcmc for fixed bins
+    mcmc_instance_binned = MCMC(lens_table_path = table , model=name_model, bin_width=0.1,
+                            path_project = path_project, nwalkers = nwalkers, nsteps = nsteps)
     mcmc_instance_binned.main()
 
+    print('Done! \n')
 
-    print(f"Using distance reconstruction from {ANN.output_table}")
-    ## run the mcmc for fixed bins for the GP results 
-    mcmc_gp = MCMC(lens_table_path=ANN.output_table , path_project = path_project, 
-                model='ANN', nwalkers =50, nsteps = 100)
-    mcmc_gp.main()
+    print(f" \n ************** gamma from {table} for adaptive bins ************** \n")
+    ## run the mcmc for fixed bins
+    mcmc_instance_binned = MCMC(lens_table_path = table , model=name_model,
+                            elements_per_bin = 15,
+                            path_project = path_project, nwalkers = nwalkers, nsteps = nsteps)
+    mcmc_instance_binned.main()
 
+    print('Done! \n')
 
-    mcmc_direct = MCMC(lens_table_path=GP.output_table , 
-                    path_project=path_project,
-                    output_folder = os.path.join(path_project, 'Output', 'Gamma_DirectFit' ), 
-                model='GP', nwalkers =50, nsteps = 100, mode='direct',  x_ini=[2.0, 0])
+    print(' \n  ************** gamma direct fit ************** ' )
+    mcmc_direct = MCMC(lens_table_path = mcmc.output_table , 
+                    path_project =path_project,
+                    output_folder = os.path.join(path_project, 'Output', f'Gamma_DirectFit_{name_model}' ), 
+                model=name_model, nwalkers = nwalkers, nsteps = nsteps, mode='direct',  x_ini=[2.0, 0])
     mcmc_direct.main()
+    print('Done! \n')
 
-    mcmc_linear = MCMC(lens_table_path=mcmc_gp.output_table ,
+
+    print(' \n  ************** gamma linear fit ************** ' )
+    mcmc_linear = MCMC(lens_table_path =  mcmc.output_table   ,
                     path_project=path_project,
-                    output_folder = os.path.join(path_project,'Output', 'Gamma_LinearFit' ), 
-                model='GP', nwalkers =50, nsteps = 100, mode='linear', x_ini=[2.0, 0])
+                    output_folder = os.path.join(path_project,'Output', f'Gamma_LinearFit_{name_model}' ), 
+                model=name_model, nwalkers = nwalkers, nsteps = nsteps, mode='linear', x_ini=[2.0, 0])
     mcmc_linear.main()
+    print('Done! \n')
 
-    mcmc_K = MCMC(lens_table_path=mcmc_gp.output_table ,
+            
+    print(' \n  ************** Koopmans power law 2d fixed beta ************** ' ) 
+    mcmc_K_beta = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
-                    output_folder = os.path.join(path_project,'Output', 'Gamma_Koopmans' ), 
-                model='GP', nwalkers=50, nsteps = 100, mode='Koopmans',  x_ini= [2.0,0.0,2.0,0.0])
+                    output_folder = os.path.join(path_project,'Output', f'Gamma_Koopmans_2D_fixed_beta_{name_model}' ), 
+                model=name_model, nwalkers=nwalkers, nsteps = nsteps, mode='Koopmans_2D',  x_ini= [2.0,2.0])
+    mcmc_K_beta.main()    
+    print('Done! \n')
+
+
+            
+    print(' \n  ************** Koopmans power law 3d  ************** ' ) 
+    mcmc_K_beta = MCMC(lens_table_path = mcmc.output_table ,
+                    path_project=path_project,
+                    output_folder = os.path.join(path_project,'Output', f'Gamma_Koopmans_3D_{name_model}' ), 
+                model=name_model, nwalkers=nwalkers, nsteps = nsteps, mode='Koopmans_3D',  x_ini= [2.0,2.0,0.])
+    mcmc_K_beta.main()    
+    print('Done! \n')
+
+
+        
+    print(' \n  ************** Koopmans power law 4d fixed beta ************** ' ) 
+    mcmc_K_beta = MCMC(lens_table_path = mcmc.output_table ,
+                    path_project=path_project,
+                    output_folder = os.path.join(path_project,'Output', f'Gamma_Koopmans_4D_fixed_beta_{name_model}' ), 
+                model=name_model, nwalkers=50, nsteps = nsteps, mode='Koopmans_4D',  x_ini= [2.0,0.0,2.0,0.0])
+    mcmc_K_beta.main()    
+    print('Done! \n')
+
+    print(' \n  ************** Koopmans power law 5d ************** ' )    
+    mcmc_K = MCMC(lens_table_path = mcmc.output_table ,
+                    path_project=path_project,
+                    output_folder = os.path.join(path_project,'Output', f'Gamma_Koopmans_5D_{name_model}' ), 
+                model=name_model, nwalkers=50, nsteps = nsteps, mode='Koopmans_5D',  x_ini= [2.0, 0.0, 2.0, 0.0, 0.0])
     mcmc_K.main()
+    print('Done! \n')
 
-
-    mcmc_K_beta = MCMC(lens_table_path=mcmc_gp.output_table ,
-                    path_project=path_project,
-                    output_folder = os.path.join(path_project,'Output', 'Gamma_Koopmans_fixed_beta' ), 
-                model='GP', nwalkers=50, nsteps = 100, mode='Koopmans_beta',  x_ini= [2.0,0.0,2.0,0.0])
-    mcmc_K_beta.main()
-
-
-mcmc_linear = MCMC(lens_table_path=mcmc_gp.output_table ,
-                path_project=path_project,
-                output_folder = os.path.join(path_project,'Output', 'Gamma_LinearFit' ), 
-            model='GP', nwalkers =50, nsteps = 100, mode='linear', x_ini=[2.0, 0])
-mcmc_linear.main()

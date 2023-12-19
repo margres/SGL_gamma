@@ -8,10 +8,10 @@ from astropy import units as u
 from astropy import constants as const
 import matplotlib.pyplot as plt
 from datetime import datetime
-from mcmc_utils import lnprob, lnprobdirect, lnproblinear, lnprob_K, lnprob_K_fixbeta
+from mcmc_utils import lnprob, lnprobdirect, lnproblinear, lnprob_K_5D, lnprob_K_4D, lnprob_K_3D, lnprob_K_2D
 import random
 from multiprocessing import Pool
-from utils_plot import plot_point_with_fit, plot_directfit
+from utils_plot import plot_point_with_fit, plot_GetDist
 
 
 random.seed(42)
@@ -23,9 +23,10 @@ class MCMC:
                  model='',
                  mode = '',
                  bin_width=None, elements_per_bin=None, nsteps=5000, 
-                 nwalkers=500, ndim=None, ncpu=None,  burnin = None,
+                 nwalkers=500, ndim=None, ncpu=None,  #burnin = None,
                  all_ln_probs=None,all_samples=None,
-                 lnprob_touse = lnprob, x_ini=[2]
+                 lnprob_touse = lnprob, x_ini=[2],
+                 nsteps_per_checkpoint =  2000
                  ):
         
         self.model = model
@@ -36,6 +37,7 @@ class MCMC:
         self.nsteps = nsteps
         self.nwalkers = nwalkers
         self.x_ini = x_ini
+        self.nsteps_per_checkpoint = nsteps_per_checkpoint
 
         if ndim is None:
             self.ndim = len(self.x_ini)
@@ -51,16 +53,22 @@ class MCMC:
             self.lnprob_touse = lnprobdirect
         elif mode =='':
             self.lnprob_touse = lnprob_touse
-        elif mode  == 'Koopmans':
-            self.lnprob_touse = lnprob_K
-        elif mode == 'Koopmans_beta':
-            self.lnprob_touse = lnprob_K_fixbeta
-        
+        elif mode == 'Koopmans_2D':
+            self.lnprob_touse = lnprob_K_2D
+        elif mode == 'Koopmans_3D':
+            self.lnprob_touse = lnprob_K_3D
+        elif mode == 'Koopmans_4D':
+            self.lnprob_touse = lnprob_K_4D
+        elif mode == 'Koopmans_5D':
+            self.lnprob_touse = lnprob_K_5D
+        else:
+            raise ValueError('mode not available ')
+        '''
         if burnin is None:
             self.burnin = int(nsteps*0.1)
         else:
             self.burnin = burnin
-
+        '''
         # Load lens table
         self.lens_table = Table.read(self.lens_table_path)
         self.binned = True
@@ -84,12 +92,12 @@ class MCMC:
             self.binned = False
             if self.output_folder is None:
                 self.output_folder = os.path.join(path_project, 'Output',
-                                                  f"MCMC_{self.model}_singular_obj_nw_{nwalkers}_ns_{nsteps}_no_burnin")
+                                                  f"MCMC_{self.model}_singular_obj_nw_{nwalkers}_ns_{nsteps}")
         if bin_width is not None:
             #fixed
             if self.output_folder is None:
                 self.output_folder = os.path.join(path_project,'Output',
-                                                  f"MCMC_{self.model}_fixed_{self.bin_width}_nwalkers_{nwalkers}_nsteps_{nsteps}_no_burnin")
+                                                  f"MCMC_{self.model}_fixed_{self.bin_width}_nwalkers_{nwalkers}_nsteps_{nsteps}")
             min_z_l = self.lens_table['zl'].min()
             max_z_l = self.lens_table['zl'].max()
             self.bin_edges = np.arange(min_z_l, max_z_l + self.bin_width, self.bin_width)
@@ -98,7 +106,7 @@ class MCMC:
             #adaptive
             if self.output_folder is None:
                 self.output_folder = os.path.join(path_project, 'Output',
-                                                  f"MCMC_{self.model}_adaptive_{self.elements_per_bin}_nw_{nwalkers}_ns_{nsteps}_no_burnin")
+                                                  f"MCMC_{self.model}_adaptive_{self.elements_per_bin}_nw_{nwalkers}_ns_{nsteps}")
             self.bin_edges = np.percentile(self.lens_table['zl'], np.linspace(0, 100, self.elements_per_bin + 1))
 
         if self.binned:
@@ -235,7 +243,7 @@ class MCMC:
     
     def run_mcmc(self,):
 
-        print('################ running the mcmc ##################')
+        print('\n ... running the mcmc ... \n')
         
         # Initialize lists to accumulate samples
         all_samples = []
@@ -248,7 +256,7 @@ class MCMC:
         else:
             print(f'Number of elements in the table {len(self.lens_table)}')
             subtables = self.lens_table
-            if self.mode in ['Koopmans', 'Koopmans_beta'] :
+            if 'Koopmans' in self.mode:
                 subtables =  [subtables]
 
         if self.mode in ['linear', 'direct' ]:
@@ -280,37 +288,45 @@ class MCMC:
             
             with Pool(self.ncpu) as pool:
                 # initial sampler
-                if self.ndim in [1,4]:
+                if self.ndim in [1,2,3,4,5]:
                     if self.ndim == 1:
                         args = args[1:]
                     sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
                                                 #args=(theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
                                                 args = args,
                                                 backend=backend)
-                elif self.ndim == 2:
+                elif self.ndim == 2 and self.mode==['linear', 'direct']:
                     
                     sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
                                 args = args,
                                 #(zl_arr,theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
                                 backend=backend)
-
+                else:
+                    raise ValueError('no sampler available for this number of x_ini')
                 
+            # Checkpoint system
+            for _ in range(0, self.nsteps, self.nsteps_per_checkpoint):
+                sampler.run_mcmc(p0, self.nsteps_per_checkpoint, store=True,progress=True)
 
-            sampler.run_mcmc(p0, self.nsteps, progress=True)
-        
-            # only take one for each group of 10 for correlations between samples
-            thin = 1
-            
-            if self.burnin is None:
-                # autocorrelation check
-                tau = sampler.get_autocorr_time()
-                # Suggested burn-in
-                self.burnin = int(2 * np.max(tau))
-                # Suggested thinning
-                thin = int(0.5 * np.min(tau))
+                # Evaluate the current state of the chain
+
+                try:
+                    tau = sampler.get_autocorr_time(tol=0)
+                    burnin = int(2 * np.max(tau))
+                    thin = 1
+                    print(f"Checkpoint: tau={tau}, burnin={burnin}, thin={thin}")
+
+                    # If chain is long enough, break
+                    if sampler.iteration / np.max(tau) > 50:
+                        print("Sufficient chain length achieved. Stopping run.")
+                        break
+                except emcee.autocorr.AutocorrError as e:
+                    # Handle the case where autocorrelation time can't be reliably estimated
+                    print(str(e))
+                p0 = sampler.get_last_sample()
 
             # Append the samples for this 'z_l' bin to the list of all samples
-            all_samples.append(sampler.get_chain(discard=self.burnin, thin=thin))
+            all_samples.append(sampler.get_chain(discard=burnin, thin=thin))
             all_ln_probs.append(sampler.get_log_prob())
 
             # Process and plot the combined results for each 'z_l' bin here
@@ -319,6 +335,7 @@ class MCMC:
 
         self.all_samples = np.array(all_samples)
         self.all_ln_probs = np.array(all_ln_probs)
+        print('mcmc finished! \n ')
 
     def calculate_statistics(self):
         """
@@ -340,8 +357,6 @@ class MCMC:
             results_table = self.create_out_table( median_value, mean_value,mad_value)
             results_table.write(self.output_table, overwrite =True)
 
-
-        print(f'saved results in {self.output_folder} ')
         return median_value, mean_value, mad_value
 
     def plot_hist_bins(self):
@@ -351,7 +366,7 @@ class MCMC:
         plt.ylabel('Frequency')
         plt.title('Histogram with Fixed Number of Elements per Bin')
         plt.savefig(os.path.join(self.output_folder,'hist_zl.png'), transparent=False, facecolor='white', bbox_inches='tight')
-        plt.show(block=False)
+        #plt.show(block=False)
 
     def plot_post_prob(self):
 
@@ -404,7 +419,7 @@ class MCMC:
         if self.elements_per_bin is not None:
             plt.suptitle(f'{self.model} adaptive # {self.elements_per_bin} per bin',y=1.05, fontsize = 16)
         plt.savefig(os.path.join(self.output_folder,'posterior_distribution.png'), transparent=False, facecolor='white', bbox_inches='tight' )
-        plt.show(block=False)
+        #plt.show(block=False)
         
     def load_samples_and_ln_probs(self):
         """
@@ -417,8 +432,8 @@ class MCMC:
         - all_samples: list of arrays, MCMC samples for each 'z_l' bin.
         - all_ln_probs: list of arrays, ln_probs for each 'z_l' bin.
         """
-        samples_file_path = os.path.join(self.output_folder, f'all_samples{self.mode}.npy')
-        ln_probs_file_path = os.path.join(self.output_folder, f'all_ln_probs{self.mode}.npy')
+        samples_file_path = os.path.join(self.output_folder, f'all_samples_{self.mode}.npy')
+        ln_probs_file_path = os.path.join(self.output_folder, f'all_ln_probs_{self.mode}.npy')
 
         if os.path.exists(samples_file_path): #and os.path.exists(ln_probs_file_path):
             print(f'load data from  {samples_file_path}')
@@ -439,6 +454,8 @@ class MCMC:
             x = self.lens_table['zl']
 
         y, _, y_err = self.calculate_statistics()
+
+        print(f'saved results in {self.output_folder} ')
     
         if self.bin_width is not None:
             label = f'{self.model} fixed {self.bin_width}  bin'
@@ -462,15 +479,34 @@ class MCMC:
         if self.all_samples is None:
             self.run_mcmc()
 
+        self.all_samples = np.squeeze(self.all_samples)
+        
         # different plottings
         if self.mode in ['linear' , 'direct']: 
-            param_names = [r'\gamma_0', r'\gamma_1']
-            self.all_samples = np.squeeze(self.all_samples)
-            plot_directfit(self.all_samples, param_names, output_folder = self.output_folder)
 
-        elif  self.mode == 'Koopmans_beta':
-            param_names = [r'$\gamma_0$', r'$\gamma_1$',r'$\delta_0$',r'$\delta_1$']
-            
+            param_labels = [r'\gamma_0', r'\gamma_1']
+            plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
+
+        elif self.mode == 'Koopmans_2D':
+
+            param_labels = [r'\gamma',r'\delta']
+            plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
+
+        elif self.mode == 'Koopmans_3D':
+
+            param_labels = [r'\gamma',r'\delta', r'\beta']
+            plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
+
+        elif self.mode == 'Koopmans_4D':
+
+            param_labels = [r'\gamma_0', r'\gamma_1',r'\delta_0',r'\delta_1']
+            plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
+
+        elif self.mode =='Koopmans_5D' :
+
+            param_labels = [r'\gamma_0', r'\gamma_1',r'\delta_0',r'\delta_1',r'\beta']
+            plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
+
         else:
             self.plot_post_prob()
             self.plot_results()

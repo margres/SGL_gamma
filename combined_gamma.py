@@ -3,6 +3,8 @@ import pandas as pd
 import os
 from astropy.table import Table
 from utils_plot import plot_point_with_fit
+import warnings
+warnings.filterwarnings("ignore")
 
 def weighted_mean(values, errors):
 
@@ -42,8 +44,8 @@ def wmean_and_error(path_ann, path_gp, column = 'dd'):
         ann_subset = tab_ann[tab_ann['lensName'] == ln]
         gp_subset = tab_gp[tab_gp['lensName'] == ln]
 
-        values = np.array([gp_subset[f'{column}_GP'], ann_subset[f'{column}_ANN']])
-        errors = np.array([gp_subset[f'{column}_error_GP'], ann_subset[f'{column}_error_ANN']])
+        values = np.concatenate([gp_subset[f'{column}_GP'], ann_subset[f'{column}_ANN']])
+        errors = np.concatenate([gp_subset[f'{column}_error_GP'], ann_subset[f'{column}_error_ANN']])
 
         # Assuming weighted_mean and uncertainty functions work with lists of values and errors
         mean = weighted_mean(values, errors)
@@ -53,6 +55,26 @@ def wmean_and_error(path_ann, path_gp, column = 'dd'):
         wmean_error_list.append(uncertainty_value)
 
     return wmean_list, wmean_error_list
+
+def combined_dd(path_table_GP, path_table_ANN, output_folder, return_table=True):
+
+    if not os.path.exists(output_folder):
+        print(f'making dir {output_folder}')
+        os.makedirs(output_folder, exist_ok=True)
+
+    table_GP = Table.read(path_table_GP)
+    
+    table_GP = table_GP[table_GP['dd_GP'] > 0]
+
+    wmean_list, wmean_error_list = wmean_and_error(path_table_ANN, path_table_GP)
+    
+    table_GP['dd_wmean'] = np.array(wmean_list)
+    table_GP['dd_wmean_error'] = np.array(wmean_error_list)
+
+    table_GP.write(os.path.join(output_folder, 'SGLTable_combined_ANNGP.fits'), overwrite = True)
+     
+    if return_table:
+        return table_GP
 
 if __name__ == "__main__":
 
