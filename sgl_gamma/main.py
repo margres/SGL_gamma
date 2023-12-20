@@ -5,7 +5,11 @@ import os
 from rec_fsolve import add_fsolve_table
 from combined_gamma import combined_dd
 
-path_project='/home/grespanm/github/SLcosmological_parameters/SGL_gamma/'
+
+# Get the path of the current script
+script_path = os.path.abspath(__file__)
+# Get the parent directory of the script
+path_project = os.path.dirname(script_path)
 lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.fits')
 nwalkers = 50
 nsteps = 100
