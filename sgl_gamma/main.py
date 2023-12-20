@@ -9,7 +9,10 @@ from combined_gamma import combined_dd
 # Get the path of the current script
 script_path = os.path.abspath(__file__)
 # Get the parent directory of the script
-path_project = os.path.dirname(script_path)
+path_project =  os.path.dirname(os.path.dirname(script_path))
+
+print(f'Path in which your output will be saved {path_project}')
+
 lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.fits')
 nwalkers = 50
 nsteps = 100
