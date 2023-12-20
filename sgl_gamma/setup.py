@@ -1,9 +1,8 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
-    name='SGL_gamma',
+    name='sgl_gamma',
     version='0.1',
-    packages=find_packages(),
     install_requires=[
         line.strip() for line in open('requirements.txt')
     ],

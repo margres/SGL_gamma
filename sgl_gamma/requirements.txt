@@ -1,1 +1,9 @@
+astropy>=4.2
+emcee>=3.1.4
+getdist>=1.4.6
+matplotlib>=3.3.4
 numpy>=1.21.0
+pandas>=1.2.3
+scipy>=1.8.1
+setuptools==45.2.0
+tensorflow==2.15.0
