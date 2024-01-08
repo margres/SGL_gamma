@@ -45,9 +45,12 @@ class MCMC:
         else:
             self.ndim = ndim
     
-        if ncpu is None:
+        if ncpu is None:   
             self.ncpu = os.cpu_count()
-        
+            print(f'ncpu not specified, using all the {self.ncpu} cpu ')
+        else:
+            self.ncpu = ncpu
+
         if mode=='linear':
             self.lnprob_touse = lnproblinear
         elif mode == 'direct':
@@ -343,10 +346,11 @@ class MCMC:
             all_samples.append(sampler.get_chain(discard=self.burnin, thin=thin))
             all_ln_probs.append(sampler.get_log_prob())
 
-            # Process and plot the combined results for each 'z_l' bin here
-            np.save(os.path.join(self.output_folder,f'all_samples{self.mode}.npy'),all_samples)
-            #np.save(os.path.join(self.output_folder,f'all_ln_probs{self.mode}.npy'),all_ln_probs)
+        # Process and plot the combined results for each 'z_l' bin here
+        np.save(os.path.join(self.output_folder,f'all_samples{self.mode}.npy'),all_samples)
+        #np.save(os.path.join(self.output_folder,f'all_ln_probs{self.mode}.npy'),all_ln_probs)
 
+        print(len(all_samples))
         self.all_samples = np.array(all_samples)
         self.all_ln_probs = np.array(all_ln_probs)
         print('mcmc finished! \n ')
