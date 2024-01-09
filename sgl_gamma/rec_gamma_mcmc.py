@@ -298,11 +298,13 @@ class MCMC:
                     sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
                                                 #args=(theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
                                                 args = args,
+                                                pool=pool,
                                                 backend=backend)
                 elif self.ndim == 2 and self.mode==['linear', 'direct']:
                     
                     sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
                                 args = args,
+                                pool=pool,
                                 #(zl_arr,theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
                                 backend=backend)
                 else:
