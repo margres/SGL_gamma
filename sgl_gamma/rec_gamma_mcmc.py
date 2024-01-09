@@ -309,44 +309,45 @@ class MCMC:
                                 backend=backend)
                 else:
                     raise ValueError('no sampler available for this number of x_ini')
-            if self.checkpoint:    
-                # Checkpoint system
-                for _ in range(0, self.nsteps, self.nsteps_per_checkpoint):
-                    sampler.run_mcmc(p0, self.nsteps_per_checkpoint, store=True,progress=True)
-
-                    # Evaluate the current state of the chain
-                    try:
-                        tau = sampler.get_autocorr_time(tol=0)
-                        burnin = int(2 * np.max(tau))
-                        thin = 1
-                        print(f"Checkpoint: tau={tau}, burnin={burnin}, thin={thin}")
-
-                        # If chain is long enough, break
-                        if sampler.iteration / np.max(tau) > 50:
-                            print("Sufficient chain length achieved. Stopping run.")
-                            break
-                    except emcee.autocorr.AutocorrError as e:
-                        # Handle the case where autocorrelation time can't be reliably estimated
-                        print(str(e))
-                    p0 = sampler.get_last_sample()
-
-            else:
-                sampler.run_mcmc(p0, self.nsteps, progress=True)
-            
-                # only take one for each group of 10 for correlations between samples
-                thin = 1
                 
-                if self.burnin is None:
-                    # autocorrelation check
-                    tau = sampler.get_autocorr_time()
-                    # Suggested burn-in
-                    self.burnin = int(2 * np.max(tau))
-                    # Suggested thinning
-                    thin = int(0.5 * np.min(tau))
+                if self.checkpoint:    
+                    # Checkpoint system
+                    for _ in range(0, self.nsteps, self.nsteps_per_checkpoint):
+                        sampler.run_mcmc(p0, self.nsteps_per_checkpoint, store=True,progress=True)
 
-            # Append the samples for this 'z_l' bin to the list of all samples
-            all_samples.append(sampler.get_chain(discard=self.burnin, thin=thin))
-            all_ln_probs.append(sampler.get_log_prob())
+                        # Evaluate the current state of the chain
+                        try:
+                            tau = sampler.get_autocorr_time(tol=0)
+                            burnin = int(2 * np.max(tau))
+                            thin = 1
+                            print(f"Checkpoint: tau={tau}, burnin={burnin}, thin={thin}")
+
+                            # If chain is long enough, break
+                            if sampler.iteration / np.max(tau) > 50:
+                                print("Sufficient chain length achieved. Stopping run.")
+                                break
+                        except emcee.autocorr.AutocorrError as e:
+                            # Handle the case where autocorrelation time can't be reliably estimated
+                            print(str(e))
+                        p0 = sampler.get_last_sample()
+
+                else:
+                    sampler.run_mcmc(p0, self.nsteps, progress=True)
+                
+                    # only take one for each group of 10 for correlations between samples
+                    thin = 1
+                    
+                    if self.burnin is None:
+                        # autocorrelation check
+                        tau = sampler.get_autocorr_time()
+                        # Suggested burn-in
+                        self.burnin = int(2 * np.max(tau))
+                        # Suggested thinning
+                        thin = int(0.5 * np.min(tau))
+
+                # Append the samples for this 'z_l' bin to the list of all samples
+                all_samples.append(sampler.get_chain(discard=self.burnin, thin=thin))
+                all_ln_probs.append(sampler.get_log_prob())
 
         # Process and plot the combined results for each 'z_l' bin here
         np.save(os.path.join(self.output_folder,f'all_samples{self.mode}.npy'),all_samples)
