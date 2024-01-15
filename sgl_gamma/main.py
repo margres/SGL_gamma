@@ -14,10 +14,11 @@ path_project =  os.path.dirname(os.path.dirname(script_path))
 print(f'Path in which your output will be saved {path_project}')
 
 lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.fits')
-nwalkers = 50
-nsteps = 100
+nwalkers = 100
+nsteps = 150
 #if true runs usinf the checkpoint system
 checkpoint = False
+ncpu = None
 
 ## run the GP
 print( '\n ************** running the GP reconstruction ************** \n')
@@ -48,7 +49,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
     ## run the mcmc 
     mcmc = MCMC(lens_table_path = table , path_project = path_project, 
                 model=name_model, nwalkers = nwalkers, nsteps = nsteps,
-                checkpoint=checkpoint)
+                checkpoint=checkpoint, ncpu=ncpu)
     mcmc.main()
     print('Done! \n')
     
@@ -56,7 +57,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
     ## run the mcmc for fixed bins
     mcmc_instance_binned = MCMC(lens_table_path = table , model=name_model, bin_width=0.1,
                             path_project = path_project, nwalkers = nwalkers, nsteps = nsteps,
-                            checkpoint=checkpoint)
+                            checkpoint=checkpoint, ncpu=ncpu)
     mcmc_instance_binned.main()
 
     print('Done! \n')
@@ -66,7 +67,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
     mcmc_instance_binned = MCMC(lens_table_path = table , model=name_model,
                             elements_per_bin = 15,
                             path_project = path_project, nwalkers = nwalkers, nsteps = nsteps,
-                            checkpoint=checkpoint)
+                            checkpoint=checkpoint, ncpu=ncpu)
     mcmc_instance_binned.main()
 
     print('Done! \n')
@@ -76,7 +77,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
                     path_project =path_project,
                     output_folder = os.path.join(path_project, 'Output', f'Gamma_DirectFit_{name_model}' ), 
                     model=name_model, nwalkers = nwalkers, nsteps = nsteps, mode='direct',  x_ini=[2.0, 0],
-                    checkpoint=checkpoint)
+                    checkpoint=checkpoint, ncpu=ncpu)
     mcmc_direct.main()
     print('Done! \n')
 
@@ -86,7 +87,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
                     path_project=path_project,
                     output_folder = os.path.join(path_project,'Output', f'Gamma_LinearFit_{name_model}' ), 
                 model=name_model, nwalkers = nwalkers, nsteps = nsteps, mode='linear', x_ini=[2.0, 0],
-                checkpoint=checkpoint)
+                checkpoint=checkpoint, ncpu=ncpu)
     mcmc_linear.main()
     print('Done! \n')
 
@@ -96,7 +97,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
                     path_project=path_project,
                     output_folder = os.path.join(path_project,'Output', f'Gamma_Koopmans_2D_fixed_beta_{name_model}' ), 
                 model=name_model, nwalkers=nwalkers, nsteps = nsteps, mode='Koopmans_2D',  x_ini= [2.0,2.0],
-                checkpoint=checkpoint)
+                checkpoint=checkpoint, ncpu=ncpu)
     mcmc_K_beta.main()    
     print('Done! \n')
 
@@ -107,7 +108,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
                     path_project=path_project,
                     output_folder = os.path.join(path_project,'Output', f'Gamma_Koopmans_3D_{name_model}' ), 
                 model=name_model, nwalkers=nwalkers, nsteps = nsteps, mode='Koopmans_3D',  x_ini= [2.0,2.0,0.],
-                checkpoint=checkpoint)
+                checkpoint=checkpoint, ncpu=ncpu)
     mcmc_K_beta.main()    
     print('Done! \n')
 
@@ -118,7 +119,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
                     path_project=path_project,
                     output_folder = os.path.join(path_project,'Output', f'Gamma_Koopmans_4D_fixed_beta_{name_model}' ), 
                 model=name_model, nwalkers=50, nsteps = nsteps, mode='Koopmans_4D',  x_ini= [2.0,0.0,2.0,0.0],
-                checkpoint=checkpoint)
+                checkpoint=checkpoint, ncpu=ncpu)
     mcmc_K_beta.main()    
     print('Done! \n')
 
@@ -127,7 +128,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
                     path_project=path_project,
                     output_folder = os.path.join(path_project,'Output', f'Gamma_Koopmans_5D_{name_model}' ), 
                 model=name_model, nwalkers=50, nsteps = nsteps, mode='Koopmans_5D',  x_ini= [2.0, 0.0, 2.0, 0.0, 0.0],
-                checkpoint=checkpoint)
+                checkpoint=checkpoint, ncpu=ncpu)
     mcmc_K.main()
     print('Done! \n')
 

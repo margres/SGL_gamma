@@ -310,7 +310,7 @@ class MCMC:
             filename = os.path.join(self.output_folder, f"mcmc_chain.h5")
             backend = emcee.backends.HDFBackend(filename)
             backend.reset(self.nwalkers, self.ndim)
-            
+            chain_info_list = []
             with Pool(self.ncpu) as pool:
                 # initial sampler
                 if self.ndim in [1,2,3,4,5]:
@@ -367,11 +367,15 @@ class MCMC:
                         # Suggested thinning
                         thin = int(0.5 * np.min(tau))
 
-                pd.DataFrame({'nsteps': len(sampler.get_chain()),
-                            'nsteps_without_burn-in': len(sampler.get_chain(discard=self.burnin, thin=thin)),
-                             'burn-in': self.burnin,    
-                             'thin': thin,                                          
-                             }).to_csv(os.path.join(self.output_folder,'mcmc_chain_log.csv' ))
+                chain_info = {
+                    'nsteps': len(sampler.get_chain()),
+                    'nsteps_without_burn-in': len(sampler.get_chain(discard=self.burnin, thin=thin)),
+                    'burn-in': self.burnin,
+                    'thin': thin}
+                
+                chain_info_list.append(chain_info)
+
+                pd.DataFrame(chain_info_list).to_csv(os.path.join(self.output_folder,'mcmc_chain_log.csv' ))
 
                 # Append the samples for this 'z_l' bin to the list of all samples
                 all_samples.append(sampler.get_chain(discard=self.burnin, thin=thin))
@@ -380,8 +384,6 @@ class MCMC:
         # Process and plot the combined results for each 'z_l' bin here
         np.save(os.path.join(self.output_folder,f'mcmc_samples.npy'),all_samples)
         #np.save(os.path.join(self.output_folder,f'all_ln_probs{self.mode}.npy'),all_ln_probs)
-
-        print(len(all_samples))
         self.all_samples = np.array(all_samples)
         #elf.all_ln_probs = np.array(all_ln_probs)
         print('mcmc finished! \n ')

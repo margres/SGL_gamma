@@ -53,7 +53,7 @@ def plot_point_with_fit(x, y, y_err,
 
     fig = plt.figure(dpi=200)
     
-    plt.plot(xfit, yfit, 'k--', lw=1.5, label=r'$\rm y = \rm %0.2fx + %0.2f$' % (m, b))
+    plt.plot(xfit, yfit, 'k--', lw=1.5, label=r'$\rm y = \rm %0.3fx + %0.3f$' % (m, b))
     if plot_residuals:
         plt.fill_between(xfit, upper_error, lower_error, alpha=0.1, color="k", edgecolor="none")
     plt.errorbar(x, y, yerr=y_err, fmt='o', color= 'firebrick', markersize=5, 
