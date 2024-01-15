@@ -7,3 +7,4 @@ pandas==1.2.3
 scipy==1.8.1
 setuptools==45.2.0
 tensorflow
+seaborn

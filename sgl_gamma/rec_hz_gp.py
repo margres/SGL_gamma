@@ -15,6 +15,7 @@ class GP:
                  lens_table_path,
                  path_project,
                  table_CC='Hz-34.txt', folder_data='Data',
+                 force_run =  False
                  ):
         
         self.path_project = path_project
@@ -22,6 +23,7 @@ class GP:
         self.output_table = os.path.join(self.output_folder, 'SGLTable_GP.fits')
         self.lens_table_path = lens_table_path
         self.lens_table = Table.read(self.lens_table_path)
+        self.output_name = 'hz_reconstructed_GP.npy'
 
         # Open file with the correct encoding
         with io.open(os.path.join(self.path_project, folder_data, table_CC), 'r', encoding='utf-8') as f:
@@ -36,6 +38,19 @@ class GP:
         self.Sigma = Sigma
         self.zmin = 0
         self.zmax = np.max(Z)
+        
+        #check if file already exists
+        if os.path.exists(os.path.join(self.output_folder,  self.output_name)) and force_run == False:
+
+            print(f'Results from GP found in folder {self.output_folder} - not running the process again')
+            print('set force_run=True to run anyway')
+            self.run =  False
+
+        elif force_run == True:
+
+            self.run =  True
+        else:
+            self.run = True
 
 
     def plot_GP_result(self, zrec, hzrec, sighzrec):
@@ -92,60 +107,53 @@ class GP:
 
     def main(self, plot_results=True):
 
-        g1 = gp.GaussianProcess(self.Z, self.Hz, self.Sigma,
-                                covfunction=covariance.Matern92, cXstar=(self.zmin, self.zmax, 19651))
+        if self.run:
+            g1 = gp.GaussianProcess(self.Z, self.Hz, self.Sigma,
+                                    covfunction=covariance.Matern92, cXstar=(self.zmin, self.zmax, 19651))
 
-        (rec1, theta1) = g1.gp(thetatrain='True')
+            (rec1, theta1) = g1.gp(thetatrain='True')
 
-        zrec = rec1[:, 0]
-        hzrec = rec1[:, 1]
-        sighzrec = rec1[:, 2]
-
-
-        dd_CC_GP = []
-        dd_CC_GP_err = []
- 
-   
-        for index, row in enumerate(self.lens_table):
-
-            dls_tmp = Dls_reconstruct_z(row['zl'], row['zs'], zrec, hzrec, sighzrec)
-            ds_tmp =  Dls_reconstruct_z(0.0, row['zs'], zrec, hzrec, sighzrec)
-
-            Dls = dls_tmp [0] 
-            Ds = ds_tmp[0]
-            Dls_err = dls_tmp[1]
-            Ds_err = ds_tmp[1]
-
-            dd_CC_GP_tmp = self.calculate_dd(Dls, Ds, Dls_err, Ds_err)
-            dd_CC_GP.append(dd_CC_GP_tmp[0])
-            dd_CC_GP_err.append(dd_CC_GP_tmp[1])
+            zrec = rec1[:, 0]
+            hzrec = rec1[:, 1]
+            sighzrec = rec1[:, 2]
 
 
-        print(f"Saving distance reconstruction in {os.path.join(self.output_folder,f'Lens_table_GP.fits')}")
-        self.lens_table['dd_GP'] = dd_CC_GP
-        self.lens_table['dd_error_GP'] = dd_CC_GP_err
+            dd_CC_GP = []
+            dd_CC_GP_err = []
+    
+    
+            for index, row in enumerate(self.lens_table):
 
-        self.lens_table.write(self.output_table, overwrite =True)
+                dls_tmp = Dls_reconstruct_z(row['zl'], row['zs'], zrec, hzrec, sighzrec)
+                ds_tmp =  Dls_reconstruct_z(0.0, row['zs'], zrec, hzrec, sighzrec)
 
-       
-        # ======= printing the reconstructed H(z) at the lowest point, i.e., zmin=0, and its relative uncertainty
-        # print(f'z = {zrec[0]}, H0 = {hzrec[0]}, sigH0 = {sighzrec[0]}, sigH0/H0(%) = {(sighzrec[0] / hzrec[0]) * 100.}')
-        print('z = {}, H0 = {}, sigH0 = {}, sigH0/H0(%) = {}'.format(zrec[0], hzrec[0], sighzrec[0], (sighzrec[0] / hzrec[0]) * 100.))
-        # print(f'saving results GP as {os.path.join(self.path_project, "hz_reconstructed_GP.txt")}')
-        print('saving results GP as {}'.format(os.path.join(self.path_project, "hz_reconstructed_GP.npy")))
-        # ========== saving the reconstructed hz
-        np.save(os.path.join(self.output_folder, 'hz_reconstructed_GP.npy'), rec1)
+                Dls = dls_tmp [0] 
+                Ds = ds_tmp[0]
+                Dls_err = dls_tmp[1]
+                Ds_err = ds_tmp[1]
 
-        if plot_results:
-            print('plotting the results')
-            self.plot_GP_result(zrec, hzrec, sighzrec)
+                dd_CC_GP_tmp = self.calculate_dd(Dls, Ds, Dls_err, Ds_err)
+                dd_CC_GP.append(dd_CC_GP_tmp[0])
+                dd_CC_GP_err.append(dd_CC_GP_tmp[1])
 
 
-if __name__ == "__main__":
+            print(f"\n Saving distance reconstruction in {os.path.join(self.output_folder,f'Lens_table_GP.fits')} \n")
 
-    path_project='/home/grespanm/github/SLcosmological_parameters/SGL_gamma/'
-    lens_table_path = os.path.join(path_project, 'Data' , 'LensTable02.fits')
+            self.lens_table['dd_GP'] = dd_CC_GP
+            self.lens_table['dd_error_GP'] = dd_CC_GP_err
 
-    GP = GP(lens_table_path=lens_table_path, path_project=path_project)
-    GP.main()
-    print("Done!")
+            self.lens_table.write(self.output_table, overwrite =True)
+
+        
+            # ======= printing the reconstructed H(z) at the lowest point, i.e., zmin=0, and its relative uncertainty
+            # print(f'z = {zrec[0]}, H0 = {hzrec[0]}, sigH0 = {sighzrec[0]}, sigH0/H0(%) = {(sighzrec[0] / hzrec[0]) * 100.}')
+            print('z = {}, H0 = {}, sigH0 = {}, sigH0/H0(%) = {}'.format(zrec[0], hzrec[0], sighzrec[0], (sighzrec[0] / hzrec[0]) * 100.))
+            # print(f'saving results GP as {os.path.join(self.path_project, "hz_reconstructed_GP.txt")}')
+            print(' \n saving results GP results in {} \n'.format(os.path.join(self.path_project,  self.output_name)))
+            # ========== saving the reconstructed hz
+            np.save(os.path.join(self.output_folder,  self.output_name), rec1)
+
+            if plot_results:
+                print('plotting the results')
+                self.plot_GP_result(zrec, hzrec, sighzrec)
+

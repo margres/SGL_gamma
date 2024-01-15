@@ -80,7 +80,7 @@ def func_to_solve(pmgamma,thetaE,theta_ap,sigma_ap,Da_r):
 
 
 def add_fsolve_table(path_project, path_table, x0=2):
-   
+
     table  = Table.read(path_table)
 
     zl = table['zl']

@@ -3,6 +3,7 @@ import os
 import numpy as np
 from scipy import integrate
 from astropy.table import Table
+import pandas as pd
 import time
 from astropy import units as u
 from astropy import constants as const
@@ -26,8 +27,10 @@ class MCMC:
                  nwalkers=500, ndim=None, ncpu=None,  burnin = None,
                  all_ln_probs=None,all_samples=None,
                  lnprob_touse = lnprob, x_ini=[2],
-                 nsteps_per_checkpoint =  2000,
-                 checkpoint=False
+                 nsteps_per_checkpoint =  5000,
+                 checkpoint=True,
+                 param_directfit = 'zl',
+                 force_run =False
                  ):
         
         self.model = model
@@ -40,6 +43,8 @@ class MCMC:
         self.x_ini = x_ini
         self.nsteps_per_checkpoint = nsteps_per_checkpoint
         self.checkpoint = checkpoint
+        self.param_directfit = param_directfit
+    
         if ndim is None:
             self.ndim = len(self.x_ini)
         else:
@@ -93,15 +98,16 @@ class MCMC:
             
         if (bin_width is None) and (elements_per_bin is None):
             print('No binning  - mcmc for every element')
+            
             self.binned = False
             if self.output_folder is None:
                 self.output_folder = os.path.join(path_project, 'Output',
-                                                  f"MCMC_{self.model}_singular_obj_nw_{nwalkers}_ns_{nsteps}_no_burnin")
+                                                  f"Gamma_{self.model}_singular_nw_{nwalkers}_ns_{nsteps}")
         if bin_width is not None:
             #fixed
             if self.output_folder is None:
                 self.output_folder = os.path.join(path_project,'Output',
-                                                  f"MCMC_{self.model}_fixed_{self.bin_width}_nwalkers_{nwalkers}_nsteps_{nsteps}_no_burnin")
+                                                  f"Gamma_{self.model}_fixed_{self.bin_width}_nwalkers_{nwalkers}_nsteps_{nsteps}")
             min_z_l = self.lens_table['zl'].min()
             max_z_l = self.lens_table['zl'].max()
             self.bin_edges = np.arange(min_z_l, max_z_l + self.bin_width, self.bin_width)
@@ -110,7 +116,7 @@ class MCMC:
             #adaptive
             if self.output_folder is None:
                 self.output_folder = os.path.join(path_project, 'Output',
-                                                  f"MCMC_{self.model}_adaptive_{self.elements_per_bin}_nw_{nwalkers}_ns_{nsteps}_no_burnin")
+                                                  f"Gamma_{self.model}_adaptive_{self.elements_per_bin}_nw_{nwalkers}_ns_{nsteps}")
             self.bin_edges = np.percentile(self.lens_table['zl'], np.linspace(0, 100, self.elements_per_bin + 1))
 
         if self.binned:
@@ -125,6 +131,8 @@ class MCMC:
         if not os.path.exists(self.output_folder):
             print(f'making dir {self.output_folder}')
             os.makedirs(self.output_folder, exist_ok=True)
+            self.all_samples, self.all_ln_probs = all_samples, all_ln_probs
+        elif force_run:
             self.all_samples, self.all_ln_probs = all_samples, all_ln_probs
         else:
             try:
@@ -228,22 +236,35 @@ class MCMC:
 
     def args_linear_fit(self, sub_table):
         
-        zl_list, gamma_list, gamma_mad_list = [], [],[]
+        param_list, gamma_list, gamma_mad_list = [], [],[]
 
         if len(np.shape(sub_table))==0:
             sub_table =[sub_table]
         
         for row in sub_table:
-            zl = row['zl']
+            #in the most cases this is z
+            try:
+                if self.param_directfit!= 'theta_E/theta_eff':
+                    param = row['theta_E'] / row['theta_eff']
+
+                else:
+                    param = row[self.param_directfit]
+            except:
+                print (f'{self.param_directfit} parameter not available')
+                # first two are index and lens name
+                print(f' The parameter available are {print(sub_table.colnames[2:])} and theta_E/theta_eff')
+                return
             gamma = row[f'Gamma_median_{self.model}'] 
             gamma_mad = row[f'Gamma_MAD_{self.model}']
 
+
+
             # Append parameter values for this row to lists
-            zl_list.append(zl)
+            param_list.append(param)
             gamma_list.append(gamma)
             gamma_mad_list.append(gamma_mad)
 
-        return np.array(zl_list),np.array(gamma_list),np.array(gamma_mad_list)
+        return np.array(param_list),np.array(gamma_list),np.array(gamma_mad_list)
     
     def run_mcmc(self,):
 
@@ -280,13 +301,13 @@ class MCMC:
             else:
                 args = self.process_subtable(sub_table)
 
-            
+             
             # initial guess for MCMC
             p0 = [np.random.normal(loc=self.x_ini, scale=1e-4, size=self.ndim) for _ in range(self.nwalkers)]
             
             # Set up the backend
             # Don't forget to clear it in case the file already exists
-            filename = os.path.join(self.output_folder, f"mcmc_results{self.mode}.h5")
+            filename = os.path.join(self.output_folder, f"mcmc_chain.h5")
             backend = emcee.backends.HDFBackend(filename)
             backend.reset(self.nwalkers, self.ndim)
             
@@ -310,7 +331,8 @@ class MCMC:
                 else:
                     raise ValueError('no sampler available for this number of x_ini')
                 
-                if self.checkpoint:    
+                if self.checkpoint:   
+                    print(f'Running with checkpoints every {self.nsteps_per_checkpoint} ') 
                     # Checkpoint system
                     for _ in range(0, self.nsteps, self.nsteps_per_checkpoint):
                         sampler.run_mcmc(p0, self.nsteps_per_checkpoint, store=True,progress=True)
@@ -318,9 +340,9 @@ class MCMC:
                         # Evaluate the current state of the chain
                         try:
                             tau = sampler.get_autocorr_time(tol=0)
-                            burnin = int(2 * np.max(tau))
+                            self.burnin = int(2 * np.max(tau))
                             thin = 1
-                            print(f"Checkpoint: tau={tau}, burnin={burnin}, thin={thin}")
+                            print(f"Checkpoint: tau={tau}, burnin={self.burnin}, thin={thin}")
 
                             # If chain is long enough, break
                             if sampler.iteration / np.max(tau) > 50:
@@ -345,17 +367,23 @@ class MCMC:
                         # Suggested thinning
                         thin = int(0.5 * np.min(tau))
 
+                pd.DataFrame({'nsteps': len(sampler.get_chain()),
+                            'nsteps_without_burn-in': len(sampler.get_chain(discard=self.burnin, thin=thin)),
+                             'burn-in': self.burnin,    
+                             'thin': thin,                                          
+                             }).to_csv(os.path.join(self.output_folder,'mcmc_chain_log.csv' ))
+
                 # Append the samples for this 'z_l' bin to the list of all samples
                 all_samples.append(sampler.get_chain(discard=self.burnin, thin=thin))
-                all_ln_probs.append(sampler.get_log_prob())
-
+                #all_ln_probs.append(sampler.get_log_prob())
+               
         # Process and plot the combined results for each 'z_l' bin here
-        np.save(os.path.join(self.output_folder,f'all_samples{self.mode}.npy'),all_samples)
+        np.save(os.path.join(self.output_folder,f'mcmc_samples.npy'),all_samples)
         #np.save(os.path.join(self.output_folder,f'all_ln_probs{self.mode}.npy'),all_ln_probs)
 
         print(len(all_samples))
         self.all_samples = np.array(all_samples)
-        self.all_ln_probs = np.array(all_ln_probs)
+        #elf.all_ln_probs = np.array(all_ln_probs)
         print('mcmc finished! \n ')
 
     def calculate_statistics(self):
@@ -443,6 +471,7 @@ class MCMC:
         #plt.show(block=False)
         
     def load_samples_and_ln_probs(self):
+
         """
         Load MCMC samples and ln_probs from the specified folder path.
 
@@ -453,8 +482,9 @@ class MCMC:
         - all_samples: list of arrays, MCMC samples for each 'z_l' bin.
         - all_ln_probs: list of arrays, ln_probs for each 'z_l' bin.
         """
-        samples_file_path = os.path.join(self.output_folder, f'all_samples{self.mode}.npy')
-        ln_probs_file_path = os.path.join(self.output_folder, f'all_ln_probs{self.mode}.npy')
+
+        samples_file_path = os.path.join(self.output_folder, f'mcmc_samples.npy')
+        #ln_probs_file_path = os.path.join(self.output_folder, f'all_ln_probs{self.mode}.npy')
 
         if os.path.exists(samples_file_path): #and os.path.exists(ln_probs_file_path):
             print(f'load data from  {samples_file_path}')
@@ -463,7 +493,7 @@ class MCMC:
 
             return all_samples#, all_ln_probs
         else:
-            raise FileNotFoundError(f"Files not found in the specified folder: {self.output_folder}")
+            raise FileNotFoundError(f"File {samples_file_path} not found")
 
 
     def plot_results(self):
@@ -481,7 +511,7 @@ class MCMC:
         if self.bin_width is not None:
             label = f'{self.model} fixed {self.bin_width}  bin'
         if self.elements_per_bin is not None:
-             label = f'{self.model} adaptive # {self.elements_per_bin} per bin'
+            label = f'{self.model} adaptive # {self.elements_per_bin} per bin'
         else:
             label = f'{self.model} singular element'
 
@@ -505,7 +535,7 @@ class MCMC:
         # different plottings
         if self.mode in ['linear' , 'direct']: 
 
-            param_labels = [r'\gamma_0', r'\gamma_1']
+            param_labels = [r'\gamma_0', r'\gamma_S']
             plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
 
         elif self.mode == 'Koopmans_2D':
@@ -520,24 +550,15 @@ class MCMC:
 
         elif self.mode == 'Koopmans_4D':
 
-            param_labels = [r'\gamma_0', r'\gamma_1',r'\delta_0',r'\delta_1']
+            param_labels = [r'\gamma_0', r'\gamma_S',r'\delta_0',r'\delta_S']
             plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
 
         elif self.mode =='Koopmans_5D' :
 
-            param_labels = [r'\gamma_0', r'\gamma_1',r'\delta_0',r'\delta_1',r'\beta']
+            param_labels = [r'\gamma_0', r'\gamma_S',r'\delta_0',r'\delta_S',r'\beta']
             plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
 
         else:
             self.plot_post_prob()
             self.plot_results()
 
-# Example usage:
-if __name__ == "__main__":
-
-    path_project = '/home/grespanm/github/SLcosmological_parameters/SGL_gamma'
-    lens_table_path = os.path.join(path_project, 'Data' , 'LensTable02.fits')
-
-    #fixed bins
-    mcmc_instance_binned = MCMC(lens_table_path, path_project=path_project , model='ANN', bin_width=0.1)
-    mcmc_instance_binned.main()

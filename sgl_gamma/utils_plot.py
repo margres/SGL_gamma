@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from getdist import plots, MCSamples
-
+import pandas as pd
+import seaborn as sns
 
 def fit_line(x, y, y_err):
 
@@ -18,16 +19,28 @@ def plot_point_with_fit(x, y, y_err,
     x_label='z$_L$',
     y_label = '$\gamma$',
     plot_name = 'linear_fit_gamma.png',
-    label = '', 
-    output_folder=None):
+    label = None, 
+    output_folder=None,
+    m=None,
+    b=None,
+    plot_residuals = True):
 
-    # Perform a weighted linear fit
-    m, b = fit_line(x, y, y_err)
-
+    if m is None and b is None:
+        # Perform a weighted linear fit
+        m, b = fit_line(x, y, y_err)
+        
+    elif m is not None and b is not None:
+        print('Using the given m and b values')
+    else:
+        raise ValueError('I need both values of m and b')
+    
+    pd.DataFrame({'b': b,
+        'm': m}).to_csv(os.path.join(output_folder,'m_b_linear_fit.csv' ))
+    
     # Generate points for the best fit line
-    xfit = np.linspace(0, 1, 100)
+    xfit = np.linspace(min(x)-delta_x, max(x)+delta_x, 100)
     yfit = m * xfit + b
-
+    delta_x = x[2]-x[10]
     # Calculate standard deviation of residuals
     residuals = y - (m * x + b)
     std_residuals = np.std(residuals)
@@ -36,14 +49,19 @@ def plot_point_with_fit(x, y, y_err,
     upper_error = yfit + 1 * std_residuals
     lower_error = yfit - 1 * std_residuals
 
-    fig = plt.figure(dpi=100)
+    sns.set(style="whitegrid")
 
-    plt.plot(xfit, yfit, 'k--', lw=1, label=r'Best fit: $\rm y = \rm %0.2fx + %0.2f$' % (m, b))
-    plt.fill_between(xfit, upper_error, lower_error, alpha=0.1, color="k", edgecolor="none")
-    plt.errorbar(x, y, yerr=y_err, fmt='.', markersize=8, capsize=2, elinewidth=2, label=f'{label}')
-    plt.xlabel(x_label)
-    plt.ylabel(y_label)
-    fig.legend()#loc='upper center', bbox_to_anchor=(0.5, 1.1))
+    fig = plt.figure(dpi=200)
+    
+    plt.plot(xfit, yfit, 'k--', lw=1.5, label=r'$\rm y = \rm %0.2fx + %0.2f$' % (m, b))
+    if plot_residuals:
+        plt.fill_between(xfit, upper_error, lower_error, alpha=0.1, color="k", edgecolor="none")
+    plt.errorbar(x, y, yerr=y_err, fmt='o', color= 'firebrick', markersize=5, 
+                 capsize=2, elinewidth=1, label=f'{label}', alpha =0.4)
+    plt.xlabel(x_label, fontsize = 15)
+    plt.ylabel(y_label, fontsize = 15)
+    plt.xlim(min(xfit)-delta_x, max(xfit)+delta_x)
+    fig.legend(loc='upper center')#loc='upper center', bbox_to_anchor=(0.5, 1.1))
 
     if output_folder is not None:
         plt.savefig(os.path.join(output_folder, plot_name),
@@ -77,6 +95,9 @@ def add_dollar_signs(param_labels):
 def plot_GetDist(samples, param_labels, output_folder ):
 
     marginal_medians, mads = calculate_marginal_median_and_mad(samples)
+    #print(marginal_medians)
+    pd.DataFrame({'median': marginal_medians, 
+                  'mad': mads}).to_csv(os.path.join(output_folder,'median_mad_posterior_dist.csv' ))
 
     param_names = add_dollar_signs(param_labels)
 
@@ -118,6 +139,8 @@ def plot_GetDist(samples, param_labels, output_folder ):
     
     if output_folder is not None:
         # Optionally, save the plot
-        plt.savefig(os.path.join(output_folder , "ProbDist.png"), bbox_inches="tight")
+        plt.savefig(os.path.join(output_folder , "Posterior_Dist.png"), bbox_inches="tight", dpi=200)
 
    #plt.show( block=False)
+
+

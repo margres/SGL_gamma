@@ -29,7 +29,7 @@ class ANN:
                  data=None, 
                  model=None, metric='mse',
                  epochs= 300,  
-                 save_model_as='Model_ANN.h5'
+                 save_model_as='weights_ANN.h5'
                    ):
         
         self.path_project = path_project
@@ -152,13 +152,3 @@ class ANN:
         SL['dd_error_ANN'] = dd_e
         print(f"Creating table with distance ratio from ANN predictions in { self.output_table}")
         SL.write(self.output_table, overwrite = True)
-
-#path_project = '/home/grespanm/github/SLcosmological_parameters'
-#path_model =  '/home/grespanm/github/SLcosmological_parameters/sgl_gamma/Output/ANN'
-
-if __name__ == '__main__':
-    
-    path_project='/home/grespanm/github/SLcosmological_parameters/SGL_gamma/'
-    lens_table_path = os.path.join(path_project, 'Data' , 'LensTable02.fits')
-    ANN= ANN(lens_table_path=table_path, path_project =path_project)
-    ANN.main()

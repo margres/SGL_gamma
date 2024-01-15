@@ -41,12 +41,6 @@ def chi_2(x, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
     denom_obs = (abs_delta_dd)**2
     return num / (denom_obs + denom_th)
 
-'''
-def lnlike( x, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
-    return np.exp(-chi_2(x, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd) * 0.5)
-'''
-
-
 def lnlike(x, *args):
    
     if len(args) == 8:
@@ -117,10 +111,8 @@ def lnproblinear(theta, x, y, yerr):
     g0, g1 = theta
     total_lnlike = 0
 
-    # Iterate over each row in the fits table
     for i in range(len(x)):
         gamma = gamma_z1(g0, g1, x[i])
-
 
         # Check if x is within the desired range
         if not (1.51 < gamma < 2.49):
@@ -128,9 +120,6 @@ def lnproblinear(theta, x, y, yerr):
 
         total_lnlike += np.log(lnlike_linear(theta, x[i], y[i], yerr[i]))
 
-#     lp = lnprior(g, zl)
-#     if not np.isfinite(lp):
-#         return -np.inf    
     return total_lnlike
 
 
