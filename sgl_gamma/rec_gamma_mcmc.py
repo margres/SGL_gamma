@@ -29,7 +29,7 @@ class MCMC:
                  lnprob_touse = lnprob, x_ini=[2],
                  nsteps_per_checkpoint =  5000,
                  checkpoint=True,
-                 param_directfit = 'zl',
+                 param_fit = 'zl',
                  force_run =False
                  ):
         
@@ -43,7 +43,7 @@ class MCMC:
         self.x_ini = x_ini
         self.nsteps_per_checkpoint = nsteps_per_checkpoint
         self.checkpoint = checkpoint
-        self.param_directfit = param_directfit
+        self.param_fit = param_fit
     
         if ndim is None:
             self.ndim = len(self.x_ini)
@@ -100,24 +100,24 @@ class MCMC:
             print('No binning  - mcmc for every element')
             
             self.binned = False
-            if self.output_folder is None:
-                self.output_folder = os.path.join(path_project, 'Output',
-                                                  f"Gamma_{self.model}_singular_nw_{nwalkers}_ns_{nsteps}")
+            self.mode = 'singular'
+           
         if bin_width is not None:
             #fixed
-            if self.output_folder is None:
-                self.output_folder = os.path.join(path_project,'Output',
-                                                  f"Gamma_{self.model}_fixed_{self.bin_width}_nwalkers_{nwalkers}_nsteps_{nsteps}")
+            self.mode = 'fixed'
+
             min_z_l = self.lens_table['zl'].min()
             max_z_l = self.lens_table['zl'].max()
             self.bin_edges = np.arange(min_z_l, max_z_l + self.bin_width, self.bin_width)
 
         if elements_per_bin is not None:
             #adaptive
-            if self.output_folder is None:
-                self.output_folder = os.path.join(path_project, 'Output',
-                                                  f"Gamma_{self.model}_adaptive_{self.elements_per_bin}_nw_{nwalkers}_ns_{nsteps}")
+            self.mode = 'adaptive'
             self.bin_edges = np.percentile(self.lens_table['zl'], np.linspace(0, 100, self.elements_per_bin + 1))
+
+        if self.output_folder is None:
+            self.output_folder = os.path.join(path_project, 'Output',
+                            f"{self.model}_gamma-{self.param_fit}_{self.mode}_nw_{nwalkers}_ns_{nsteps}")
 
         if self.binned:
             self.hist, _ = np.histogram(self.lens_table['zl'], bins=self.bin_edges)
@@ -244,13 +244,13 @@ class MCMC:
         for row in sub_table:
             #in the most cases this is z
             try:
-                if self.param_directfit!= 'theta_E/theta_eff':
+                if self.param_fit!= 'theta_E/theta_eff':
                     param = row['theta_E'] / row['theta_eff']
 
                 else:
-                    param = row[self.param_directfit]
+                    param = row[self.param_fit]
             except:
-                print (f'{self.param_directfit} parameter not available')
+                print (f'{self.param_fit} parameter not available')
                 # first two are index and lens name
                 print(f' The parameter available are {print(sub_table.colnames[2:])} and theta_E/theta_eff')
                 return
@@ -418,6 +418,7 @@ class MCMC:
         plt.title('Histogram with Fixed Number of Elements per Bin')
         plt.savefig(os.path.join(self.output_folder,'hist_zl.png'), transparent=False, facecolor='white', bbox_inches='tight')
         #plt.show(block=False)
+        plt.close()
 
     def plot_post_prob(self):
 

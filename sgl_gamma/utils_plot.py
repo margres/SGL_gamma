@@ -34,13 +34,14 @@ def plot_point_with_fit(x, y, y_err,
     else:
         raise ValueError('I need both values of m and b')
     
-    pd.DataFrame({'b': b,
-        'm': m}).to_csv(os.path.join(output_folder,'m_b_linear_fit.csv' ))
+    pd.DataFrame({'b': [b],
+        'm': [m]}).to_csv(os.path.join(output_folder,'m_b_linear_fit.csv' ))
     
     # Generate points for the best fit line
+    delta_x = x[2]-x[0]
     xfit = np.linspace(min(x)-delta_x, max(x)+delta_x, 100)
     yfit = m * xfit + b
-    delta_x = x[2]-x[10]
+
     # Calculate standard deviation of residuals
     residuals = y - (m * x + b)
     std_residuals = np.std(residuals)
@@ -67,7 +68,7 @@ def plot_point_with_fit(x, y, y_err,
         plt.savefig(os.path.join(output_folder, plot_name),
                     transparent=False, facecolor='white', bbox_inches='tight')
     #plt.show(block=False)
-
+    plt.close()
 
 
 def calculate_marginal_median_and_mad(samples):

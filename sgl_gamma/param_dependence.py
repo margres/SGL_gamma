@@ -16,8 +16,10 @@ path_project =  os.path.dirname(os.path.dirname(script_path))
 print(f'Path in which your output will be saved {path_project}')
 
 lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.fits')
-nwalkers = 200
-nsteps = None #4000
+
+nwalkers = 100
+nsteps = 150
+
 #if true runs usinf the checkpoint system
 checkpoint = True
 
@@ -28,7 +30,7 @@ GP.main()
 #add_fsolve_table(path_project , GP.output_table)
 
 name_model, table  = 'GP',GP.output_table 
-
+mode='linear'
 ## run the mcmc 
 mcmc = MCMC(lens_table_path = table , path_project = path_project, 
             model=name_model, nwalkers = nwalkers, nsteps = nsteps,
@@ -57,7 +59,7 @@ for param in parameters_list:
 
 
     linear_results_path = os.path.join('/home/grespanm/github/SLcosmological_parameters/SGL_gamma/Output/',
-                  f'Gamma_LinearFit_GP_{param}','median_mad_posterior_dist.csv')
+                  f'{name_model}_gamma-{param}_{mode}_nw_{nwalkers}_ns_{nsteps}','median_mad_posterior_dist.csv')
     
     linear_results = Table.read(linear_results_path)
     m = linear_results['median'][1]

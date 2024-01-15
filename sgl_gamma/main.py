@@ -74,8 +74,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
 
     print(' \n  ************** gamma direct fit ************** ' )
     mcmc_direct = MCMC(lens_table_path = mcmc.output_table , 
-                    path_project =path_project,
-                    output_folder = os.path.join(path_project, 'Output', f'Gamma_DirectFit_{name_model}' ), 
+                    path_project =path_project, 
                     model=name_model, nwalkers = nwalkers, nsteps = nsteps, mode='direct',  x_ini=[2.0, 0],
                     checkpoint=checkpoint, ncpu=ncpu)
     mcmc_direct.main()
@@ -84,8 +83,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
 
     print(' \n  ************** gamma linear fit ************** ' )
     mcmc_linear = MCMC(lens_table_path =  mcmc.output_table   ,
-                    path_project=path_project,
-                    output_folder = os.path.join(path_project,'Output', f'Gamma_LinearFit_{name_model}' ), 
+                    path_project=path_project, 
                 model=name_model, nwalkers = nwalkers, nsteps = nsteps, mode='linear', x_ini=[2.0, 0],
                 checkpoint=checkpoint, ncpu=ncpu)
     mcmc_linear.main()
@@ -95,7 +93,6 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
     print(' \n  ************** Koopmans power law 2d fixed beta ************** ' ) 
     mcmc_K_beta = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
-                    output_folder = os.path.join(path_project,'Output', f'Gamma_Koopmans_2D_fixed_beta_{name_model}' ), 
                 model=name_model, nwalkers=nwalkers, nsteps = nsteps, mode='Koopmans_2D',  x_ini= [2.0,2.0],
                 checkpoint=checkpoint, ncpu=ncpu)
     mcmc_K_beta.main()    
@@ -106,7 +103,6 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
     print(' \n  ************** Koopmans power law 3d  ************** ' ) 
     mcmc_K_beta = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
-                    output_folder = os.path.join(path_project,'Output', f'Gamma_Koopmans_3D_{name_model}' ), 
                 model=name_model, nwalkers=nwalkers, nsteps = nsteps, mode='Koopmans_3D',  x_ini= [2.0,2.0,0.],
                 checkpoint=checkpoint, ncpu=ncpu)
     mcmc_K_beta.main()    
@@ -117,7 +113,6 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
     print(' \n  ************** Koopmans power law 4d fixed beta ************** ' ) 
     mcmc_K_beta = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
-                    output_folder = os.path.join(path_project,'Output', f'Gamma_Koopmans_4D_fixed_beta_{name_model}' ), 
                 model=name_model, nwalkers=50, nsteps = nsteps, mode='Koopmans_4D',  x_ini= [2.0,0.0,2.0,0.0],
                 checkpoint=checkpoint, ncpu=ncpu)
     mcmc_K_beta.main()    
@@ -126,7 +121,6 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
     print(' \n  ************** Koopmans power law 5d ************** ' )    
     mcmc_K = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
-                    output_folder = os.path.join(path_project,'Output', f'Gamma_Koopmans_5D_{name_model}' ), 
                 model=name_model, nwalkers=50, nsteps = nsteps, mode='Koopmans_5D',  x_ini= [2.0, 0.0, 2.0, 0.0, 0.0],
                 checkpoint=checkpoint, ncpu=ncpu)
     mcmc_K.main()
