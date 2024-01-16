@@ -17,8 +17,8 @@ print(f'Path in which your output will be saved {path_project}')
 
 lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.fits')
 
-nwalkers = 100
-nsteps = 150
+nwalkers = 20000
+nsteps = 200
 
 #if true runs usinf the checkpoint system
 checkpoint = True
@@ -44,14 +44,13 @@ parameters_list = ['theta_eff', 'theta_ap', 'sigma_ap', 'theta_E', 'theta_E/thet
 
 for param in parameters_list:
 
-    path_out = os.path.join(path_project,'Output', f'Gamma_LinearFit_{name_model}_{param}' )
+    #path_out = os.path.join(path_project,'Output', f'Gamma_LinearFit_{name_model}_{param}' )
 
     print(' \n  ************** gamma linear fit ************** ' )
 
     mcmc_linear = MCMC(lens_table_path =  mcmc.output_table   ,
                     path_project=path_project,
-                    param_directfit = param, 
-                    output_folder = path_out, 
+                    param_fit = param, 
                 model=name_model, nwalkers = nwalkers, nsteps = nsteps, mode='linear', x_ini=[2.0, 0],
                 checkpoint=checkpoint)
     mcmc_linear.main()

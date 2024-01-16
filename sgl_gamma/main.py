@@ -14,10 +14,10 @@ path_project =  os.path.dirname(os.path.dirname(script_path))
 print(f'Path in which your output will be saved {path_project}')
 
 lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.fits')
-nwalkers = 100
-nsteps = 150
+nwalkers = 20000
+nsteps = 200
 #if true runs usinf the checkpoint system
-checkpoint = False
+checkpoint = True
 ncpu = None
 
 ## run the GP

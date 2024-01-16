@@ -61,7 +61,9 @@ def plot_point_with_fit(x, y, y_err,
                  capsize=2, elinewidth=1, label=f'{label}', alpha =0.4)
     plt.xlabel(x_label, fontsize = 15)
     plt.ylabel(y_label, fontsize = 15)
-    plt.xlim(min(xfit)-delta_x, max(xfit)+delta_x)
+
+    plt.xlim(min(x)-delta_x, max(x)+delta_x)
+
     fig.legend(loc='upper center')#loc='upper center', bbox_to_anchor=(0.5, 1.1))
 
     if output_folder is not None:
@@ -141,6 +143,7 @@ def plot_GetDist(samples, param_labels, output_folder ):
     if output_folder is not None:
         # Optionally, save the plot
         plt.savefig(os.path.join(output_folder , "Posterior_Dist.png"), bbox_inches="tight", dpi=200)
+    plt.close()
 
    #plt.show( block=False)
 

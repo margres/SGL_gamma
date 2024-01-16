@@ -13,7 +13,7 @@ from mcmc_utils import lnprob, lnprobdirect, lnproblinear, lnprob_K_5D, lnprob_K
 import random
 from multiprocessing import Pool
 from utils_plot import plot_point_with_fit, plot_GetDist
-
+import seaborn as sns
 
 random.seed(42)
 
@@ -27,7 +27,7 @@ class MCMC:
                  nwalkers=500, ndim=None, ncpu=None,  burnin = None,
                  all_ln_probs=None,all_samples=None,
                  lnprob_touse = lnprob, x_ini=[2],
-                 nsteps_per_checkpoint =  5000,
+                 nsteps_per_checkpoint = 1000,
                  checkpoint=True,
                  param_fit = 'zl',
                  force_run =False
@@ -44,6 +44,7 @@ class MCMC:
         self.nsteps_per_checkpoint = nsteps_per_checkpoint
         self.checkpoint = checkpoint
         self.param_fit = param_fit
+        self.chain_info_list = []
     
         if ndim is None:
             self.ndim = len(self.x_ini)
@@ -96,11 +97,12 @@ class MCMC:
         if (bin_width is not None) and (elements_per_bin is not None):
             raise ValueError("Only one of bin_width or elements_per_bin should be defined, not both.")
             
-        if (bin_width is None) and (elements_per_bin is None):
+        if (bin_width is None) and (elements_per_bin is None) and  self.mode =='':
             print('No binning  - mcmc for every element')
-            
             self.binned = False
             self.mode = 'singular'
+        elif (bin_width is None) and (elements_per_bin is None) and  self.mode !='' :
+            self.binned = False
            
         if bin_width is not None:
             #fixed
@@ -310,7 +312,7 @@ class MCMC:
             filename = os.path.join(self.output_folder, f"mcmc_chain.h5")
             backend = emcee.backends.HDFBackend(filename)
             backend.reset(self.nwalkers, self.ndim)
-            chain_info_list = []
+            
             with Pool(self.ncpu) as pool:
                 # initial sampler
                 if self.ndim in [1,2,3,4,5]:
@@ -373,9 +375,9 @@ class MCMC:
                     'burn-in': self.burnin,
                     'thin': thin}
                 
-                chain_info_list.append(chain_info)
+                self.chain_info_list.append(chain_info)
 
-                pd.DataFrame(chain_info_list).to_csv(os.path.join(self.output_folder,'mcmc_chain_log.csv' ))
+                pd.DataFrame(self.chain_info_list).to_csv(os.path.join(self.output_folder,'mcmc_chain_log.csv' ))
 
                 # Append the samples for this 'z_l' bin to the list of all samples
                 all_samples.append(sampler.get_chain(discard=self.burnin, thin=thin))
@@ -411,8 +413,9 @@ class MCMC:
         return median_value, mean_value, mad_value
 
     def plot_hist_bins(self):
+        sns.set(style="whitegrid")
         # Plot the histogram
-        plt.hist(self.lens_table['zl'], bins=self.bin_edges, edgecolor='k', alpha=0.7)
+        plt.hist(self.lens_table['zl'], bins=self.bin_edges, color='b', alpha=0.7)
         plt.xlabel('Value')
         plt.ylabel('Frequency')
         plt.title('Histogram with Fixed Number of Elements per Bin')
@@ -421,7 +424,7 @@ class MCMC:
         plt.close()
 
     def plot_post_prob(self):
-
+        sns.set(style="whitegrid")
         median_x, mean_x, mad_x = self.calculate_statistics()
         
         # Define the number of subplots per row
@@ -444,7 +447,7 @@ class MCMC:
 
             ax = axes[row_idx, col_idx]  # Get the current subplot axis
 
-            hist_gamma, _, _ = ax.hist(samples[:, 0], bins=30, alpha=0.5, color='b', density=True, label='Posterior Distribution')
+            hist_gamma, _, _ = ax.hist(samples[:, 0], bins=30, alpha=0.7, color='b', density=True, label='Posterior Distribution')
             ax.axvline(x=median_x[i], c='r', ls='--', lw=2.0, label='Median')
             ax.axvline(x=mean_x[i], c='g', ls='--', lw=2.0, label='Mean', alpha=0.7)
             #ax.fill_betweenx([0, 1], lower_x, upper_x, color='g', alpha=0.3, label='68% Confidence Interval')
@@ -472,6 +475,7 @@ class MCMC:
             plt.suptitle(f'{self.model} adaptive # {self.elements_per_bin} per bin',y=1.05, fontsize = 16)
         plt.savefig(os.path.join(self.output_folder,'posterior_distribution.png'), transparent=False, facecolor='white', bbox_inches='tight' )
         #plt.show(block=False)
+        plt.close()
         
     def load_samples_and_ln_probs(self):
 
