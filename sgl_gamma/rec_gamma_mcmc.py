@@ -45,7 +45,13 @@ class MCMC:
         self.checkpoint = checkpoint
         self.param_fit = param_fit
         self.chain_info_list = []
-    
+        
+        # Load lens table
+        self.lens_table = Table.read(self.lens_table_path)
+        self.binned = True
+        self.output_folder = output_folder
+
+
         if ndim is None:
             self.ndim = len(self.x_ini)
         else:
@@ -78,11 +84,6 @@ class MCMC:
             self.burnin = int(nsteps*0.1)
         else:
             self.burnin = burnin
-
-        # Load lens table
-        self.lens_table = Table.read(self.lens_table_path)
-        self.binned = True
-        self.output_folder = output_folder
 
         if model not in ['ANN', 'GP', 'wmean']:
             raise ValueError('model not known, only available ANN or GP')
@@ -144,9 +145,11 @@ class MCMC:
                 self.all_samples, self.all_ln_probs = all_samples, all_ln_probs
 
         self.output_table = os.path.join(self.output_folder, f'SGL_{self.model}_gammaMCMC.fits')
-        #if burnin is None:
-        #      self.burnin = int(self.nsteps * 0.1)
 
+        if self.param_fit== 'theta_Edivtheta_eff':
+            self.lens_table['theta_Edivtheta_eff'] = self.lens_table['theta_E'] / self.lens_table['theta_eff']
+            self.lens_table.write(self.output_table, overwrite =True)
+    
     
     def create_output_folder(self):
             # Check if the output folder already exists
@@ -246,12 +249,8 @@ class MCMC:
         for row in sub_table:
             #in the most cases this is z
             try:
-                if self.param_fit!= 'theta_E/theta_eff':
-                    param = row['theta_E'] / row['theta_eff']
-
-                else:
-                    param = row[self.param_fit]
-            except:
+                param = row[self.param_fit]
+            except KeyError:
                 print (f'{self.param_fit} parameter not available')
                 # first two are index and lens name
                 print(f' The parameter available are {print(sub_table.colnames[2:])} and theta_E/theta_eff')

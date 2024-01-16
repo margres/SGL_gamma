@@ -19,7 +19,7 @@ def plot_point_with_fit(x, y, y_err,
     x_label='z$_L$',
     y_label = '$\gamma$',
     plot_name = 'linear_fit_gamma.png',
-    label = None, 
+    label = 'SGL', 
     output_folder=None,
     m=None,
     b=None,
@@ -38,7 +38,8 @@ def plot_point_with_fit(x, y, y_err,
         'm': [m]}).to_csv(os.path.join(output_folder,'m_b_linear_fit.csv' ))
     
     # Generate points for the best fit line
-    delta_x = x[2]-x[0]
+    x_sort = np.sort(x)
+    delta_x = x_sort[10]-x_sort[0]
     xfit = np.linspace(min(x)-delta_x, max(x)+delta_x, 100)
     yfit = m * xfit + b
 

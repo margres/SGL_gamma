@@ -17,8 +17,8 @@ print(f'Path in which your output will be saved {path_project}')
 
 lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.fits')
 
-nwalkers = 20000
-nsteps = 200
+nwalkers = 200
+nsteps = 20000
 
 #if true runs usinf the checkpoint system
 checkpoint = True
@@ -40,7 +40,7 @@ mcmc.main()
 y_label = f'Gamma_median_{name_model}'
 y_label_err = f'Gamma_MAD_{name_model}'
 
-parameters_list = ['theta_eff', 'theta_ap', 'sigma_ap', 'theta_E', 'theta_E/theta_eff']
+parameters_list = ['theta_eff', 'theta_ap', 'sigma_ap', 'theta_E', 'theta_Edivtheta_eff']
 
 for param in parameters_list:
 
@@ -57,20 +57,25 @@ for param in parameters_list:
     print('Done! \n')
 
 
-    linear_results_path = os.path.join('/home/grespanm/github/SLcosmological_parameters/SGL_gamma/Output/',
+    linear_results_path = os.path.join(path_project, 'Output/',
                   f'{name_model}_gamma-{param}_{mode}_nw_{nwalkers}_ns_{nsteps}','median_mad_posterior_dist.csv')
     
     linear_results = Table.read(linear_results_path)
     m = linear_results['median'][1]
     b = linear_results['median'][0]
 
-    x, y, y_err= mcmc.lens_table[param], mcmc.lens_table[y_label], mcmc.lens_table[y_label_err]
+    x, y, y_err= mcmc_linear.lens_table[param], mcmc_linear.lens_table[y_label], mcmc_linear.lens_table[y_label_err]
     
     plot_point_with_fit(x, y, y_err, 
     x_label= param,
     y_label = y_label,
-    plot_name = f'linear_fit_{param}-{y_label}.png', 
+    plot_name = f'mcmc_linear_fit_{param}-{y_label}.png', 
     output_folder=os.path.dirname(linear_results_path),
     m=m,b=b)
 
+    plot_point_with_fit(x, y, y_err, 
+    x_label= param,
+    y_label = y_label,
+    plot_name = f'linear_fit_{param}-{y_label}.png', 
+    output_folder=os.path.dirname(linear_results_path))
 
