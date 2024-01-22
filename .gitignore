@@ -5,6 +5,8 @@
 *ipynb
 Output/ANN/*fits
 Output/GP*
+Output/ANN_*
+Combined_dd*
 
 *all_ln_probs*
 *.npy

@@ -4,6 +4,7 @@ import os
 from getdist import plots, MCSamples
 import pandas as pd
 import seaborn as sns
+from scipy.stats import pearsonr
 
 def fit_line(x, y, y_err):
 
@@ -23,7 +24,9 @@ def plot_point_with_fit(x, y, y_err,
     output_folder=None,
     m=None,
     b=None,
-    plot_residuals = True):
+    color_points = 'firebrick',
+    plot_residuals = True,
+    correlation=False):
 
     if m is None and b is None:
         # Perform a weighted linear fit
@@ -38,8 +41,9 @@ def plot_point_with_fit(x, y, y_err,
         'm': [m]}).to_csv(os.path.join(output_folder,'m_b_linear_fit.csv' ))
     
     # Generate points for the best fit line
-    x_sort = np.sort(x)
-    delta_x = x_sort[10]-x_sort[0]
+    x_range = np.ptp(x) 
+    delta_x = 0.1 * x_range
+
     xfit = np.linspace(min(x)-delta_x, max(x)+delta_x, 100)
     yfit = m * xfit + b
 
@@ -55,20 +59,33 @@ def plot_point_with_fit(x, y, y_err,
 
     fig = plt.figure(dpi=200)
     
-    plt.plot(xfit, yfit, 'k--', lw=1.5, label=r'$\rm y = \rm %0.3fx + %0.3f$' % (m, b))
+    plt.plot(xfit, yfit, 'k--', lw=1.5, label=f'$y = {round(m, 3)}x + {round(b, 3)}$')
+    #plt.plot(xfit, yfit, 'k--', lw=1.5, label=r'$\rm y = \rm %0.3fx + %0.3f$' % (m, b))
+
+    if correlation:
+        # Calculate Pearson correlation coefficient
+        correlation_coefficient, _ = pearsonr(x, y)
+
+        # Print correlation coefficient on the plot
+        plt.annotate(f'Correlation: {round(correlation_coefficient, 3)}', 
+                 xy=(0.9, 0.05), xycoords='axes fraction',
+                 fontsize=10, ha='right', va='bottom',
+                 bbox=dict(boxstyle='round', fc='w', alpha=0.7))
+        
     if plot_residuals:
-        plt.fill_between(xfit, upper_error, lower_error, alpha=0.1, color="k", edgecolor="none")
-    plt.errorbar(x, y, yerr=y_err, fmt='o', color= 'firebrick', markersize=5, 
+        plt.fill_between(xfit, upper_error, lower_error, 
+                         alpha=0.1, color="k", edgecolor="none", label = "residuals 1$\sigma$")
+    plt.errorbar(x, y, yerr=y_err, fmt='o', color= color_points, markersize=5, 
                  capsize=2, elinewidth=1, label=f'{label}', alpha =0.4)
     plt.xlabel(x_label, fontsize = 15)
     plt.ylabel(y_label, fontsize = 15)
 
     plt.xlim(min(x)-delta_x, max(x)+delta_x)
 
-    fig.legend(loc='upper center')#loc='upper center', bbox_to_anchor=(0.5, 1.1))
+    fig.legend(loc='lower left',bbox_to_anchor=((0.12, 0.12)))#loc='upper center', bbox_to_anchor=(0.5, 1.1))
 
     if output_folder is not None:
-        plt.savefig(os.path.join(output_folder, plot_name),
+        plt.savefig(os.path.join(output_folder, plot_name).replace('$', '').replace('\\', '') ,
                     transparent=False, facecolor='white', bbox_inches='tight')
     #plt.show(block=False)
     plt.close()
@@ -96,7 +113,8 @@ def calculate_marginal_median_and_mad(samples):
 def add_dollar_signs(param_labels):
     return [f"${label}$" for label in param_labels]
 
-def plot_GetDist(samples, param_labels, output_folder ):
+def plot_GetDist(samples, param_labels, output_folder, plot_name= 'Posterior_Dist.png' ):
+
 
     marginal_medians, mads = calculate_marginal_median_and_mad(samples)
     #print(marginal_medians)
@@ -136,14 +154,14 @@ def plot_GetDist(samples, param_labels, output_folder ):
     for i, param_name in enumerate(param_names):
         median = marginal_medians[i]
         mad = mads[i]
-        title = f"{param_name} = {median:.3f} ± {mad:.3f}"
+        title = f"{param_name} = {round(median,3)} ± {round(mad,3)}"
         ax = g.subplots[i, i]
         ax.set_title(title, fontsize=12)
 
     
     if output_folder is not None:
         # Optionally, save the plot
-        plt.savefig(os.path.join(output_folder , "Posterior_Dist.png"), bbox_inches="tight", dpi=200)
+        plt.savefig(os.path.join(output_folder , plot_name), bbox_inches="tight", dpi=200)
     plt.close()
 
    #plt.show( block=False)

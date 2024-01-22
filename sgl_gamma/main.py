@@ -14,11 +14,12 @@ path_project =  os.path.dirname(os.path.dirname(script_path))
 print(f'Path in which your output will be saved {path_project}')
 
 lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.fits')
-nwalkers = 20000
-nsteps = 200
+nwalkers = 200
+nsteps = 20000
 #if true runs usinf the checkpoint system
 checkpoint = True
 ncpu = None
+
 
 ## run the GP
 print( '\n ************** running the GP reconstruction ************** \n')
@@ -113,7 +114,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
     print(' \n  ************** Koopmans power law 4d fixed beta ************** ' ) 
     mcmc_K_beta = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
-                model=name_model, nwalkers=50, nsteps = nsteps, mode='Koopmans_4D',  x_ini= [2.0,0.0,2.0,0.0],
+                model=name_model, nwalkers=nwalkers, nsteps = nsteps, mode='Koopmans_4D',  x_ini= [2.0,0.0,2.0,0.0],
                 checkpoint=checkpoint, ncpu=ncpu)
     mcmc_K_beta.main()    
     print('Done! \n')
@@ -121,7 +122,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
     print(' \n  ************** Koopmans power law 5d ************** ' )    
     mcmc_K = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
-                model=name_model, nwalkers=50, nsteps = nsteps, mode='Koopmans_5D',  x_ini= [2.0, 0.0, 2.0, 0.0, 0.0],
+                model=name_model, nwalkers=nwalkers, nsteps = nsteps, mode='Koopmans_5D',  x_ini= [2.0, 0.0, 2.0, 0.0, 0.0],
                 checkpoint=checkpoint, ncpu=ncpu)
     mcmc_K.main()
     print('Done! \n')

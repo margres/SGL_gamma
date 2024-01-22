@@ -27,22 +27,21 @@ def load_tabs(path_ann,path_gp ):
 
     return tab_ann, tab_gp
 
-def wmean_and_error(path_ann, path_gp, column = 'dd'):
-
+def wmean_and_error(path_ann, path_gp, column='dd'):
     tab_ann, tab_gp = load_tabs(path_ann, path_gp)
 
     wmean_list = []
     wmean_error_list = []
 
-    #get all the lens names, gp has fewer lenses so use that condition 
-    lens_names = set(tab_gp[tab_gp['dd_GP'] > 0]['lensName'])
+    # Get all the indices, gp has fewer indices so use that condition 
+    indices = set(tab_gp[tab_gp['dd_GP'] > 0]['index'])
 
-    if len(lens_names) != len(tab_gp[tab_gp['dd_GP'] > 0]):
-        raise Exception('Some lenses have duplicate names')
+    if len(indices) != len(tab_gp[tab_gp['dd_GP'] > 0]):
+        raise Exception('Some entries have duplicate indices')
 
-    for ln in lens_names:
-        ann_subset = tab_ann[tab_ann['lensName'] == ln]
-        gp_subset = tab_gp[tab_gp['lensName'] == ln]
+    for index in indices:
+        ann_subset = tab_ann[tab_ann['index'] == index]
+        gp_subset = tab_gp[tab_gp['index'] == index]
 
         values = np.concatenate([gp_subset[f'{column}_GP'], ann_subset[f'{column}_ANN']])
         errors = np.concatenate([gp_subset[f'{column}_error_GP'], ann_subset[f'{column}_error_ANN']])

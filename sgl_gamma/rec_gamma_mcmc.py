@@ -30,7 +30,8 @@ class MCMC:
                  nsteps_per_checkpoint = 1000,
                  checkpoint=True,
                  param_fit = 'zl',
-                 force_run =False
+                 force_run = False,
+                 force_plots = True
                  ):
         
         self.model = model
@@ -45,6 +46,7 @@ class MCMC:
         self.checkpoint = checkpoint
         self.param_fit = param_fit
         self.chain_info_list = []
+        self.force_plots = force_plots
         
         # Load lens table
         self.lens_table = Table.read(self.lens_table_path)
@@ -422,7 +424,7 @@ class MCMC:
         #plt.show(block=False)
         plt.close()
 
-    def plot_post_prob(self):
+    def plot_post_prob(self, output_folder, plot_name = 'posterior_distribution.png'):
         sns.set(style="whitegrid")
         median_x, mean_x, mad_x = self.calculate_statistics()
         
@@ -472,8 +474,7 @@ class MCMC:
             plt.suptitle(f'{self.model} fixed {self.bin_width}  bin',y=1.05, fontsize = 16)
         if self.elements_per_bin is not None:
             plt.suptitle(f'{self.model} adaptive # {self.elements_per_bin} per bin',y=1.05, fontsize = 16)
-        plt.savefig(os.path.join(self.output_folder,'posterior_distribution.png'), transparent=False, facecolor='white', bbox_inches='tight' )
-        #plt.show(block=False)
+        plt.savefig(os.path.join(output_folder, plot_name), transparent=False, facecolor='white', bbox_inches='tight' )
         plt.close()
         
     def load_samples_and_ln_probs(self):
@@ -502,7 +503,7 @@ class MCMC:
             raise FileNotFoundError(f"File {samples_file_path} not found")
 
 
-    def plot_results(self):
+    def plot_results(self, plot_name= 'linear_fit_gamma.png'):
     
         # Data
         if self.binned:
@@ -512,59 +513,63 @@ class MCMC:
 
         y, _, y_err = self.calculate_statistics()
 
-        print(f'saved results in {self.output_folder} ')
-    
         if self.bin_width is not None:
             label = f'{self.model} fixed {self.bin_width}  bin'
         if self.elements_per_bin is not None:
             label = f'{self.model} adaptive # {self.elements_per_bin} per bin'
         else:
-            label = f'{self.model} singular element'
+            label = f'{self.model} SGL'
 
 
         plot_point_with_fit(x, y, y_err, 
             x_label='z$_L$',
             y_label = '$\gamma$',
-            plot_name = 'linear_fit_gamma.png',
-            label = '', 
+            plot_name = plot_name,
+            label = label, 
             output_folder=self.output_folder)
+
+    def path_exists(self, output_folder, file_name):
+        os.path.exists(os.path.join(output_folder , file_name))
 
 
     def main(self):
         
-        #run mcmc or use stored results
+        #run mcmc or use stored results`    `
         if self.all_samples is None:
             self.run_mcmc()
 
         self.all_samples = np.squeeze(self.all_samples)
-        
+        plot_name = 'Posterior_Dist.png' 
         # different plottings
-        if self.mode in ['linear' , 'direct']: 
-
+        if (self.mode in ['linear', 'direct']) and (not self.path_exists(self.output_folder, plot_name ) or self.force_plots):
             param_labels = [r'\gamma_0', r'\gamma_S']
             plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
 
-        elif self.mode == 'Koopmans_2D':
+        elif (self.mode == 'Koopmans_2D') and (not self.path_exists(self.output_folder, plot_name) or self.force_plots):
 
             param_labels = [r'\gamma',r'\delta']
             plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
 
-        elif self.mode == 'Koopmans_3D':
+        elif (self.mode == 'Koopmans_3D') and (not self.path_exists(self.output_folder, plot_name ) or self.force_plots):
 
             param_labels = [r'\gamma',r'\delta', r'\beta']
             plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
 
-        elif self.mode == 'Koopmans_4D':
+        elif (self.mode == 'Koopmans_4D') and (not self.path_exists(self.output_folder, plot_name ) or self.force_plots):
 
             param_labels = [r'\gamma_0', r'\gamma_S',r'\delta_0',r'\delta_S']
             plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
 
-        elif self.mode =='Koopmans_5D' :
+        elif (self.mode =='Koopmans_5D') and (not self.path_exists(self.output_folder, plot_name) or self.force_plots):
 
             param_labels = [r'\gamma_0', r'\gamma_S',r'\delta_0',r'\delta_S',r'\beta']
             plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
 
         else:
-            self.plot_post_prob()
-            self.plot_results()
+           
+            if (not self.path_exists(self.output_folder, 'posterior_distribution.png') or self.force_plots):
+                self.plot_post_prob(output_folder = self.output_folder,  plot_name = 'posterior_distribution.png' )
+
+            if (not self.path_exists(self.output_folder, 'linear_fit_gamma.png') or self.force_plots):
+                self.plot_results(  plot_name= 'linear_fit_gamma.png')
 

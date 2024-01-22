@@ -19,34 +19,46 @@ lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.fits')
 
 nwalkers = 200
 nsteps = 20000
-
-#if true runs usinf the checkpoint system
-checkpoint = True
-
-## run the GP
-print( '\n ************** running the GP reconstruction ************** \n')
-GP = GP(lens_table_path =lens_table_path, path_project=path_project)
-GP.main()
-#add_fsolve_table(path_project , GP.output_table)
-
-name_model, table  = 'GP',GP.output_table 
 mode='linear'
+checkpoint = True
+# name_model  = 'GP'
+name_model  = 'ANN'
+
+if name_model =='GP':
+    ## run the GP
+    print( '\n ************** running the GP reconstruction ************** \n')
+    GP = GP(lens_table_path =lens_table_path, path_project=path_project)
+    #GP.main()
+    table =GP.output_table 
+    color_points = 'firebrick'
+elif name_model=='ANN':
+    ## run the ANN
+    print( '\n ************** running the ANN reconstruction ************** \n')
+    ANN = ANN(path_project=path_project, lens_table_path=lens_table_path)
+    #ANN.main()
+    table = ANN.output_table 
+    color_points  = 'royalblue'
+
 ## run the mcmc 
 mcmc = MCMC(lens_table_path = table , path_project = path_project, 
             model=name_model, nwalkers = nwalkers, nsteps = nsteps,
             checkpoint=checkpoint)
 mcmc.main()
 
-y_label = f'Gamma_median_{name_model}'
-y_label_err = f'Gamma_MAD_{name_model}'
 
-parameters_list = ['theta_eff', 'theta_ap', 'sigma_ap', 'theta_E', 'theta_Edivtheta_eff']
+y_label = f'median $\gamma$ {name_model}'
 
-for param in parameters_list:
+y_name = f'Gamma_median_{name_model}'
+y_err_name = f'Gamma_MAD_{name_model}'
+
+parameters_list = ['theta_eff',  'sigma_ap', 'theta_E', 'theta_Edivtheta_eff']
+labels = ['$\theta_{eff}$',  '$\sigma_{ap}$', '$\theta_{E}$', '$\theta_{E}/\theta_{eff}$']
+
+for param, lab in zip(parameters_list, labels):
 
     #path_out = os.path.join(path_project,'Output', f'Gamma_LinearFit_{name_model}_{param}' )
 
-    print(' \n  ************** gamma linear fit ************** ' )
+    print(f' \n  ************** {param} ************** ' )
 
     mcmc_linear = MCMC(lens_table_path =  mcmc.output_table   ,
                     path_project=path_project,
@@ -64,18 +76,22 @@ for param in parameters_list:
     m = linear_results['median'][1]
     b = linear_results['median'][0]
 
-    x, y, y_err= mcmc_linear.lens_table[param], mcmc_linear.lens_table[y_label], mcmc_linear.lens_table[y_label_err]
+    x= mcmc_linear.lens_table[param]
+    y= mcmc_linear.lens_table[y_name]
+    y_err= mcmc_linear.lens_table[y_err_name]
     
     plot_point_with_fit(x, y, y_err, 
-    x_label= param,
-    y_label = y_label,
+    x_label= lab,label=f'{name_model} SGL',
+    y_label = y_label,correlation=True,
     plot_name = f'mcmc_linear_fit_{param}-{y_label}.png', 
     output_folder=os.path.dirname(linear_results_path),
+    color_points = color_points,
     m=m,b=b)
 
     plot_point_with_fit(x, y, y_err, 
-    x_label= param,
-    y_label = y_label,
+    x_label= lab,label=f'{name_model} SGL',
+    y_label = y_label, correlation=True,
     plot_name = f'linear_fit_{param}-{y_label}.png', 
+    color_points = color_points,
     output_folder=os.path.dirname(linear_results_path))
 
