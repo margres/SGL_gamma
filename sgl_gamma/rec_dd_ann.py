@@ -1,23 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from astropy.table import Table
-from astropy.io import fits
 import tensorflow as tf
 from astropy.io import ascii
-from astropy.table import unique, Table 
+from astropy.table import unique 
 from tensorflow import keras
 import os 
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.layers import Input, Dense
+from astropy.constants import c
 import numpy as np
-from astropy import units as u
-from astropy.constants import G,c, M_sun
-from scipy.special import gamma
-from astropy import constants as const
 from tensorflow.keras import layers
-
-
+from astropy.table import Table
 
 c = c.to('km/s')
 
@@ -43,7 +37,7 @@ class ANN:
         self.results = self.data[1350:] 
         self.output_folder = os.path.join(self.path_project, 'Output', 'ANN') 
         self.save_model_as = save_model_as
-        self.output_table = os.path.join(self.output_folder, 'SGLTable_ANN.fits')
+        self.output_table = os.path.join(self.output_folder, 'SGLTable_ANN.csv')
 
         if not os.path.exists(self.output_folder):
             print(f'making dir {self.output_folder}')
@@ -146,9 +140,9 @@ class ANN:
             print('Training the model')
             self.train_model(X,Y,X_val, Y_val)
         
-        SL = Table.read(self.lens_table_path)
+        SL = Table.read(self.lens_table_path, format='csv')
         dd, dd_e = self.distance_ratio(SL['zl'],SL['zs'])
         SL['dd_ANN'] = dd
         SL['dd_error_ANN'] = dd_e
         print(f"Creating table with distance ratio from ANN predictions in { self.output_table}")
-        SL.write(self.output_table, overwrite = True)
+        SL.write(self.output_table, overwrite = True, format ='csv')

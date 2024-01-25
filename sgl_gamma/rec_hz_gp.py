@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import random
 from rec_fsolve import Dls_reconstruct_z 
 from gapp import gp, covariance
-
+import seaborn as sns
 random.seed(42)
 
 class GP:
@@ -20,9 +20,9 @@ class GP:
         
         self.path_project = path_project
         self.output_folder =  os.path.join(self.path_project,'Output', 'GP')
-        self.output_table = os.path.join(self.output_folder, 'SGLTable_GP.fits')
+        self.output_table = os.path.join(self.output_folder, 'SGLTable_GP.csv')
         self.lens_table_path = lens_table_path
-        self.lens_table = Table.read(self.lens_table_path)
+        self.lens_table = Table.read(self.lens_table_path, format='csv')
         self.output_name = 'hz_reconstructed_GP.npy'
 
         # Open file with the correct encoding
@@ -54,26 +54,28 @@ class GP:
 
 
     def plot_GP_result(self, zrec, hzrec, sighzrec):
+
+        sns.set(style="whitegrid")
         # latex rendering text fonts
         # plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
+        #plt.rc('font', family='serif')
     
         # ====== Create figure size in inches
         fig, ax = plt.subplots(figsize=(12., 8.))
     
         # ========= Define axes
-        plt.xlabel(r"$z$", fontsize=22)
-        plt.ylabel(r"$H(z)$ ($\mathrm{km} \; \mathrm{s}^{-1} \; \mathrm{Mpc}^{-1}$)", fontsize=22)
-        plt.xlim(self.zmin, 2.1)
+        plt.xlabel(r"$z$", fontsize=15)
+        plt.ylabel(r"$H(z)$ ($\mathrm{km} \; \mathrm{s}^{-1} \; \mathrm{Mpc}^{-1}$)", fontsize=15)
+        plt.xlim(self.zmin, self.zmax +0.1)
     
         # ========== Plotting the real data points and reconstructed H(z) curves - from 1 to 3sigma
-        errorbar_cc = plt.errorbar(self.Z, self.Hz, yerr=self.Sigma, fmt='o', color='black')
-        fitcurve01, = ax.plot(zrec, hzrec)
+        errorbar_cc = plt.errorbar(self.Z, self.Hz, yerr=self.Sigma, fmt='o', color='#d00000')
+        fitcurve01, = ax.plot(zrec, hzrec, 'k-')
         fitcurve01_1sig = ax.fill_between(zrec, hzrec + 1. * sighzrec, hzrec - 1. * sighzrec,
-                                          facecolor='#F08080', alpha=0.80, interpolate=True)
+                                          facecolor='k', alpha=0.1, interpolate=True)
         ax.legend([errorbar_cc, (fitcurve01, fitcurve01_1sig)],
                   [r"Cosmology Chronometer", r"$GPfit+1\sigma$"], fontsize='22', loc='upper left')
-        plt.title("H(z) reconstruction with 34 CC")
+        plt.title(f"H(z) reconstruction with {len(self.Z)} CC", fontsize=15)
     
         # =========== saving the plot
         
@@ -142,7 +144,7 @@ class GP:
             self.lens_table['dd_GP'] = dd_CC_GP
             self.lens_table['dd_error_GP'] = dd_CC_GP_err
 
-            self.lens_table.write(self.output_table, overwrite =True)
+            self.lens_table.write(self.output_table, overwrite =True, format='csv')
 
         
             # ======= printing the reconstructed H(z) at the lowest point, i.e., zmin=0, and its relative uncertainty
@@ -156,4 +158,3 @@ class GP:
             if plot_results:
                 print('plotting the results')
                 self.plot_GP_result(zrec, hzrec, sighzrec)
-

@@ -81,7 +81,7 @@ def func_to_solve(pmgamma,thetaE,theta_ap,sigma_ap,Da_r):
 
 def add_fsolve_table(path_project, path_table, x0=2):
 
-    table  = Table.read(path_table)
+    table  = Table.read(path_table,  format='csv')
 
     zl = table['zl']
     zs = table['zs']
@@ -105,13 +105,6 @@ def add_fsolve_table(path_project, path_table, x0=2):
 
     table['gamma_fsolve'] = gamma
 
-    table.write(path_table, overwrite = True)
+    table.write(path_table,  format='csv', overwrite=True)
     
     print(f'fsolve results added to table {path_table}')
-
-if __name__ == "__main__":
-
-    path_project= '/home/grespanm/github/SLcosmological_parameters/SGL_gamma/'
-    lens_table_path = os.path.join(path_project, 'Output' ,'GP','SGLTable_GP.fits')
-
-    add_fsolve_table(path_project , lens_table_path)

@@ -6,6 +6,22 @@ import pandas as pd
 import seaborn as sns
 from scipy.stats import pearsonr
 
+
+def plot_hist_bins(lens_table, bin_edges, 
+                   color_points, output_folder, 
+                   plot_name = 'hist_zl.png'):
+
+    sns.set(style="whitegrid")
+    # Plot the histogram
+    plt.hist(lens_table['zl'], bins=bin_edges, color=color_points, alpha=0.7)
+    plt.xlabel('Value')
+    plt.ylabel('Frequency')
+    plt.title('Histogram with Fixed Number of Elements per Bin')
+    plt.savefig(os.path.join(output_folder, plot_name),
+                 transparent=False, facecolor='white', bbox_inches='tight')
+    #plt.show(block=False)
+    plt.close()
+    
 def fit_line(x, y, y_err):
 
     # Perform a weighted linear fit
@@ -17,7 +33,7 @@ def fit_line(x, y, y_err):
 
 
 def plot_point_with_fit(x, y, y_err, 
-    x_label='z$_L$',
+    x_label='$z_L$',
     y_label = '$\gamma$',
     plot_name = 'linear_fit_gamma.png',
     label = 'SGL', 
@@ -26,7 +42,8 @@ def plot_point_with_fit(x, y, y_err,
     b=None,
     color_points = 'firebrick',
     plot_residuals = True,
-    correlation=False):
+    correlation=False,
+    close_plot=True):
 
     if m is None and b is None:
         # Perform a weighted linear fit
@@ -37,8 +54,9 @@ def plot_point_with_fit(x, y, y_err,
     else:
         raise ValueError('I need both values of m and b')
     
-    pd.DataFrame({'b': [b],
-        'm': [m]}).to_csv(os.path.join(output_folder,'m_b_linear_fit.csv' ))
+    if output_folder is not None:
+        pd.DataFrame({'b': [b],
+            'm': [m]}).to_csv(os.path.join(output_folder,'m_b_linear_fit.csv' ))
     
     # Generate points for the best fit line
     x_range = np.ptp(x) 
@@ -47,19 +65,11 @@ def plot_point_with_fit(x, y, y_err,
     xfit = np.linspace(min(x)-delta_x, max(x)+delta_x, 100)
     yfit = m * xfit + b
 
-    # Calculate standard deviation of residuals
-    residuals = y - (m * x + b)
-    std_residuals = np.std(residuals)
-
-    # Calculate upper and lower errorbars 
-    upper_error = yfit + 1 * std_residuals
-    lower_error = yfit - 1 * std_residuals
-
     sns.set(style="whitegrid")
 
     fig = plt.figure(dpi=200)
     
-    plt.plot(xfit, yfit, 'k--', lw=1.5, label=f'$y = {round(m, 3)}x + {round(b, 3)}$')
+    plt.plot(xfit, yfit, 'k--', lw=1.5, label=f'{y_label} = {round(m, 3)}{x_label} + {round(b, 3)}')
     #plt.plot(xfit, yfit, 'k--', lw=1.5, label=r'$\rm y = \rm %0.3fx + %0.3f$' % (m, b))
 
     if correlation:
@@ -73,10 +83,21 @@ def plot_point_with_fit(x, y, y_err,
                  bbox=dict(boxstyle='round', fc='w', alpha=0.7))
         
     if plot_residuals:
+
+        # Calculate standard deviation of residuals
+        residuals = y - (m * x + b)
+        std_residuals = np.std(residuals)
+
+        # Calculate upper and lower errorbars 
+        upper_error = yfit + 1 * std_residuals
+        lower_error = yfit - 1 * std_residuals
+
         plt.fill_between(xfit, upper_error, lower_error, 
-                         alpha=0.1, color="k", edgecolor="none", label = "residuals 1$\sigma$")
+                         alpha=0.1, color="k", edgecolor="none", label = "1$\sigma$")
+    
     plt.errorbar(x, y, yerr=y_err, fmt='o', color= color_points, markersize=5, 
                  capsize=2, elinewidth=1, label=f'{label}', alpha =0.4)
+    
     plt.xlabel(x_label, fontsize = 15)
     plt.ylabel(y_label, fontsize = 15)
 
@@ -86,9 +107,9 @@ def plot_point_with_fit(x, y, y_err,
 
     if output_folder is not None:
         plt.savefig(os.path.join(output_folder, plot_name).replace('$', '').replace('\\', '') ,
-                    transparent=False, facecolor='white', bbox_inches='tight')
-    #plt.show(block=False)
-    plt.close()
+                    transparent=False, facecolor='white', )
+    if close_plot:
+        plt.close()
 
 
 def calculate_marginal_median_and_mad(samples):

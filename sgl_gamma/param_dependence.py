@@ -30,14 +30,14 @@ if name_model =='GP':
     GP = GP(lens_table_path =lens_table_path, path_project=path_project)
     #GP.main()
     table =GP.output_table 
-    color_points = 'firebrick'
+    color_points = '#d00000'
 elif name_model=='ANN':
     ## run the ANN
     print( '\n ************** running the ANN reconstruction ************** \n')
     ANN = ANN(path_project=path_project, lens_table_path=lens_table_path)
     #ANN.main()
     table = ANN.output_table 
-    color_points  = 'royalblue'
+    color_points  = '#0e79b2'
 
 ## run the mcmc 
 mcmc = MCMC(lens_table_path = table , path_project = path_project, 
@@ -51,8 +51,8 @@ y_label = f'median $\gamma$ {name_model}'
 y_name = f'Gamma_median_{name_model}'
 y_err_name = f'Gamma_MAD_{name_model}'
 
-parameters_list = ['theta_eff',  'sigma_ap', 'theta_E', 'theta_Edivtheta_eff']
-labels = ['$\theta_{eff}$',  '$\sigma_{ap}$', '$\theta_{E}$', '$\theta_{E}/\theta_{eff}$']
+parameters_list = ['theta_eff',  'sigma_ap', 'theta_Edivtheta_eff']
+labels = ['$\theta_{eff}$',  '$\sigma_{ap}$',  '$\theta_{E}/\theta_{eff}$']
 
 for param, lab in zip(parameters_list, labels):
 

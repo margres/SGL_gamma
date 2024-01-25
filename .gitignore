@@ -4,15 +4,23 @@
 *$py.class
 *ipynb
 Output/ANN/*fits
+Output/ANN/*.png
+Output/ANN/*.csv
+Output/wmean*
+Output/ANN34*
 Output/GP*
 Output/ANN_*
+Output/ANNlong*
 Combined_dd*
-
+ANN_small.py
 *all_ln_probs*
 *.npy
+MaNGA*
+Plots_paper*
+
 # C extensions
 *.so
-
+Data/SDSS_lenses.csv
 
 # Distribution / packaging
 .Python

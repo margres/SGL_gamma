@@ -2,7 +2,6 @@ import emcee
 import os
 import numpy as np
 from scipy import integrate
-from astropy.table import Table
 import pandas as pd
 import time
 from astropy import units as u
@@ -12,9 +11,9 @@ from datetime import datetime
 from mcmc_utils import lnprob, lnprobdirect, lnproblinear, lnprob_K_5D, lnprob_K_4D, lnprob_K_3D, lnprob_K_2D
 import random
 from multiprocessing import Pool
-from utils_plot import plot_point_with_fit, plot_GetDist
+from utils_plot import plot_point_with_fit, plot_GetDist,plot_hist_bins
 import seaborn as sns
-
+from astropy.table import Table
 random.seed(42)
 
 class MCMC:
@@ -31,7 +30,8 @@ class MCMC:
                  checkpoint=True,
                  param_fit = 'zl',
                  force_run = False,
-                 force_plots = True
+                 force_plots = True,
+                 color_points = 'firebrick'
                  ):
         
         self.model = model
@@ -47,9 +47,11 @@ class MCMC:
         self.param_fit = param_fit
         self.chain_info_list = []
         self.force_plots = force_plots
+        self.color_points = color_points
         
         # Load lens table
-        self.lens_table = Table.read(self.lens_table_path)
+        self.lens_table = Table.read(self.lens_table_path, format='csv')
+        print(f'Table has {len(self.lens_table)} elements')
         self.binned = True
         self.output_folder = output_folder
 
@@ -146,53 +148,34 @@ class MCMC:
                 print(e)
                 self.all_samples, self.all_ln_probs = all_samples, all_ln_probs
 
-        self.output_table = os.path.join(self.output_folder, f'SGL_{self.model}_gammaMCMC.fits')
+        self.output_table = os.path.join(self.output_folder, f'SGL_{self.model}_gammaMCMC.csv')
 
         if self.param_fit== 'theta_Edivtheta_eff':
             self.lens_table['theta_Edivtheta_eff'] = self.lens_table['theta_E'] / self.lens_table['theta_eff']
-            self.lens_table.write(self.output_table, overwrite =True)
+            self.lens_table.to_csv(self.output_table, index=False)
     
-    
-    def create_output_folder(self):
-            # Check if the output folder already exists
-            if os.path.exists(self.output_folder):
-                # Folder exists
-                user_input = input(f"The folder '{self.output_folder}' already exists. Do you want to overwrite it? (y/n): ").lower()
-
-                if user_input == 'y':
-                    # Overwrite the existing folder
-                    os.makedirs(self.output_folder, exist_ok=True)
-                elif user_input == 'n':
-                    # Create a new folder with the current date
-                    current_date = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-                    new_folder = f"{self.output_folder}_{current_date}"
-                    os.makedirs(new_folder, exist_ok=True)
-                    self.output_folder = new_folder
-                    print(f"New folder '{new_folder}' created.")
-                else:
-                    print("Invalid input. Please enter 'yes' or 'no'.")
-                    # You may want to add a loop or further handling depending on your needs.
-            else:
-                # Folder does not exist, create it
-                os.makedirs(self.output_folder, exist_ok=True)
-                print(f"Folder '{self.output_folder}' created.")
 
     def create_out_table(self, median, mean,mad):
+        #print(len(median),len(mean),len(mad),len(self.xcenters),len(self.bin_edges[:-1]),len(self.bin_edges[1:]),len(self.hist))
         # Create Astropy table
+
+        non_zero_rows = self.hist != 0
+        #print(non_zero_rows)
+
         data = {
-            'Median': median,
-            'Mean': mean,
-            'MAD': mad,
+            f'Gamma_median_{self.model}': median,
+            f'Gamma_mean_{self.model}': mean,
+            f'Gamma_MAD_{self.model}': mad,
             'bin_center': self.xcenters,
-            'bin_min_edge': self.bin_edges[:-1],
-            'bin_max_edge': self.bin_edges[1:],
-            'n_elem': self.hist
+            'bin_min_edge': self.bin_edges[:-1][non_zero_rows],
+            'bin_max_edge': self.bin_edges[1:][non_zero_rows],
+            'n_elem': self.hist[non_zero_rows]
         }
 
         results_table = Table(data)
 
         return results_table
-    
+
     def get_subtable(self):
         # Initialize an empty list to store subtables for each bin
         subtables = []
@@ -209,6 +192,29 @@ class MCMC:
             #print(sub_table['zl'])
         return subtables
     
+    def get_parameters(self,row,zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list ):
+
+        zl = row['zl']
+        theta_E_r = row['theta_E'] * u.arcsec.to('radian')
+        theta_ap_r = row['theta_ap'] * u.arcsec.to('radian')
+        sigma_ap = row['sigma_ap']
+        dd = row[f'dd_{self.model}']
+    
+        # uncertainties, global values
+        abs_delta_sigma_ap = row['sigma_ap_err']
+        abs_delta_dd = row[f'dd_error_{self.model}']
+
+        # Append parameter values for this row to lists
+        zl_list.append(zl)
+        theta_E_r_list.append(theta_E_r)
+        theta_ap_r_list.append(theta_ap_r)
+        sigma_ap_list.append(sigma_ap)
+        dd_list.append(dd)
+        abs_delta_sigma_ap_list.append(abs_delta_sigma_ap)
+        abs_delta_dd_list.append(abs_delta_dd)
+
+        return zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list
+        
     def process_subtable(self, sub_table):
     
         # Process each subtable
@@ -217,29 +223,11 @@ class MCMC:
         #print(np.shape(sub_table))
         if len(np.shape(sub_table))==0:
             sub_table =[sub_table]
-            
-        for row in sub_table:
-            zl = row['zl']
-            theta_E_r = row['theta_E'] * u.arcsec.to('radian')
-            theta_ap_r = row['theta_ap'] * u.arcsec.to('radian')
-            sigma_ap = row['sigma_ap']
-            dd = row[f'dd_{self.model}']
-        
-            # uncertainties, global values
-            abs_delta_sigma_ap = row['sigma_ap_err']
-            abs_delta_dd = row[f'dd_error_{self.model}']
 
-            # Append parameter values for this row to lists
-            zl_list.append(zl)
-            theta_E_r_list.append(theta_E_r)
-            theta_ap_r_list.append(theta_ap_r)
-            sigma_ap_list.append(sigma_ap)
-            dd_list.append(dd)
-            abs_delta_sigma_ap_list.append(abs_delta_sigma_ap)
-            abs_delta_dd_list.append(abs_delta_dd)
-            
+        for row in sub_table:
+                zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list = self.get_parameters(row,zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list) 
+
         return np.array(zl_list),np.array(theta_E_r_list),np.array(theta_ap_r_list),np.array(sigma_ap_list),np.array(dd_list),np.array(abs_delta_sigma_ap_list),np.array(abs_delta_dd_list)
-        
 
     def args_linear_fit(self, sub_table):
         
@@ -271,16 +259,17 @@ class MCMC:
     
     def run_mcmc(self,):
 
-        print('\n ... running the mcmc ... \n')
+        print('starting the mcmc ... \n')
         
         # Initialize lists to accumulate samples
         all_samples = []
-        all_ln_probs = []
         
         if self.binned:
-            print('plot hist zl')
-            self.plot_hist_bins()
+            
+            plot_hist_bins(self.lens_table, self.bin_edges, 
+                   self.color_points, self.output_folder)
             subtables = self.get_subtable()
+            
         else:
             print(f'Number of elements in the table {len(self.lens_table)}')
             subtables = self.lens_table
@@ -299,7 +288,6 @@ class MCMC:
             
             #zl_arr, theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr = self.process_subtable(sub_table)
             if self.mode == 'linear':
-                print('Running linear fit')
                 args = self.args_linear_fit(sub_table)
             else:
                 args = self.process_subtable(sub_table)
@@ -406,25 +394,18 @@ class MCMC:
         if (self.bin_width is None) and (self.elements_per_bin is None):
             self.lens_table[f'Gamma_median_{self.model}'] = median_value
             self.lens_table[f'Gamma_MAD_{self.model}'] = mad_value
-            self.lens_table.write(self.output_table, overwrite =True)
+            self.lens_table.write(self.output_table, format='csv', overwrite=True)
         else:
             results_table = self.create_out_table( median_value, mean_value,mad_value)
-            results_table.write(self.output_table, overwrite =True)
+            results_table.write(self.output_table, format='csv', overwrite=True)
 
         return median_value, mean_value, mad_value
 
-    def plot_hist_bins(self):
-        sns.set(style="whitegrid")
-        # Plot the histogram
-        plt.hist(self.lens_table['zl'], bins=self.bin_edges, color='b', alpha=0.7)
-        plt.xlabel('Value')
-        plt.ylabel('Frequency')
-        plt.title('Histogram with Fixed Number of Elements per Bin')
-        plt.savefig(os.path.join(self.output_folder,'hist_zl.png'), transparent=False, facecolor='white', bbox_inches='tight')
-        #plt.show(block=False)
-        plt.close()
+    def plot_post_prob(self, output_folder, plot_name = 'posterior_distribution.png', color_points= None):
 
-    def plot_post_prob(self, output_folder, plot_name = 'posterior_distribution.png'):
+        if color_points is None:
+            color_points = self.color_points
+
         sns.set(style="whitegrid")
         median_x, mean_x, mad_x = self.calculate_statistics()
         
@@ -522,7 +503,7 @@ class MCMC:
 
 
         plot_point_with_fit(x, y, y_err, 
-            x_label='z$_L$',
+            x_label='z',
             y_label = '$\gamma$',
             plot_name = plot_name,
             label = label, 
@@ -571,5 +552,5 @@ class MCMC:
                 self.plot_post_prob(output_folder = self.output_folder,  plot_name = 'posterior_distribution.png' )
 
             if (not self.path_exists(self.output_folder, 'linear_fit_gamma.png') or self.force_plots):
-                self.plot_results(  plot_name= 'linear_fit_gamma.png')
+                self.plot_results(  plot_name = 'linear_fit_gamma.png')
 
