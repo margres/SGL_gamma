@@ -93,7 +93,7 @@ def plot_point_with_fit(x, y, y_err,
         lower_error = yfit - 1 * std_residuals
 
         plt.fill_between(xfit, upper_error, lower_error, 
-                         alpha=0.1, color="k", edgecolor="none", label = "1$\sigma$")
+                         alpha=0.1, color="k", edgecolor="none", label = "1$\sigma$ residuals")
     
     plt.errorbar(x, y, yerr=y_err, fmt='o', color= color_points, markersize=5, 
                  capsize=2, elinewidth=1, label=f'{label}', alpha =0.4)

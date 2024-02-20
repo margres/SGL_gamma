@@ -24,6 +24,7 @@ wmean = False
 table_CC = 'Hz-34.txt'
 cut_table = False
 name_model_list = ['GP', 'ANN']
+model_name_out = ['GP', 'ANN']
 
 # shortens the table used for mcmc accordinly to max('zs') of the table_cc
 if cut_table:
@@ -58,28 +59,32 @@ table_list = [GP.output_table, ANN.output_table ]
 
 
 for name_model, table  in zip(name_model_list, table_list) :
-    if  name_model =='GP':
+    if 'GP' in  name_model :
         color_points = '#d00000'
-    if  name_model=='ANN':
+    if  'ANN' in name_model:
         color_points = 'royalblue'
     elif name_model=='wmean':
         color_points = '#e3b23c'
     
     print (f' \n  ************** MCMC for {name_model} ************** \n ')
-
+    
     print(f" \n ************** gamma from {table} for every value ************** \n")
     ## run the mcmc 
     mcmc = MCMC(lens_table_path = table , path_project = path_project, 
                 model=name_model, nwalkers = nwalkers, nsteps = nsteps,
-                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points)
+                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
+                model_name_out =model_name_out)
     mcmc.main()
     print('Done! \n')
+    
+
     
     print(f" \n ************** gamma from {table} for fixed bins ************** \n")
     ## run the mcmc for fixed bins
     mcmc_instance_binned = MCMC(lens_table_path = table , model=name_model, bin_width=0.1,
                             path_project = path_project, nwalkers = nwalkers, nsteps = nsteps,
-                            checkpoint=checkpoint, ncpu=ncpu, color_points=color_points)
+                            checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
+                            model_name_out =model_name_out)
     mcmc_instance_binned.main()
 
     print('Done! \n')
@@ -89,16 +94,18 @@ for name_model, table  in zip(name_model_list, table_list) :
     mcmc_instance_binned = MCMC(lens_table_path = table , model=name_model,
                             elements_per_bin = 15,
                             path_project = path_project, nwalkers = nwalkers, nsteps = nsteps,
-                            checkpoint=checkpoint, ncpu=ncpu, color_points=color_points)
+                            checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
+                            model_name_out =model_name_out)
     mcmc_instance_binned.main()
 
     print('Done! \n')
-
+    
     print(' \n  ************** gamma direct fit ************** ' )
     mcmc_direct = MCMC(lens_table_path = mcmc.output_table , 
                     path_project =path_project, 
                     model=name_model, nwalkers = nwalkers, nsteps = nsteps, mode='direct',  x_ini=[2.0, 0],
-                    checkpoint=checkpoint, ncpu=ncpu, color_points=color_points)
+                    checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
+                    model_name_out =model_name_out)
     mcmc_direct.main()
     print('Done! \n')
 
@@ -107,7 +114,8 @@ for name_model, table  in zip(name_model_list, table_list) :
     mcmc_linear = MCMC(lens_table_path =  mcmc.output_table   ,
                     path_project=path_project, 
                 model=name_model, nwalkers = nwalkers, nsteps = nsteps, mode='linear', x_ini=[2.0, 0],
-                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points)
+                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
+                model_name_out =model_name_out)
     mcmc_linear.main()
     print('Done! \n')
 
@@ -117,7 +125,8 @@ for name_model, table  in zip(name_model_list, table_list) :
     mcmc_K_beta = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
                 model=name_model, nwalkers=nwalkers, nsteps = nsteps, mode='Koopmans_2D',  x_ini= [2.0,2.0],
-                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points)
+                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
+                model_name_out =model_name_out)
     mcmc_K_beta.main()    
     print('Done! \n')
             
@@ -125,7 +134,8 @@ for name_model, table  in zip(name_model_list, table_list) :
     mcmc_K_beta = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
                 model=name_model, nwalkers=nwalkers, nsteps = nsteps, mode='Koopmans_3D',  x_ini= [2.0,2.0,0.],
-                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points)
+                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
+                model_name_out =model_name_out)
     mcmc_K_beta.main()    
     print('Done! \n')
 
@@ -135,7 +145,8 @@ for name_model, table  in zip(name_model_list, table_list) :
     mcmc_K_beta = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
                 model=name_model, nwalkers=400, nsteps = nsteps, mode='Koopmans_4D',  x_ini= [2.0,0.0,2.0,0.0],
-                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points)
+                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
+                model_name_out =model_name_out)
     mcmc_K_beta.main()    
     print('Done! \n')
 
@@ -143,7 +154,9 @@ for name_model, table  in zip(name_model_list, table_list) :
     mcmc_K = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
                 model=name_model, nwalkers=400, nsteps = 6000, mode='Koopmans_5D',  x_ini= [2.0, 0.0, 2.0, 0.0, 0.0],
-                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points)
+                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
+                model_name_out =model_name_out)
     mcmc_K.main()
     print('Done! \n')
 
+    

@@ -14,7 +14,10 @@ from multiprocessing import Pool
 from utils_plot import plot_point_with_fit, plot_GetDist,plot_hist_bins
 import seaborn as sns
 from astropy.table import Table
-random.seed(42)
+
+
+seed = 42
+np.random.seed(seed)
 
 class MCMC:
 
@@ -31,10 +34,17 @@ class MCMC:
                  param_fit = 'zl',
                  force_run = False,
                  force_plots = True,
-                 color_points = 'firebrick'
+                 color_points = 'firebrick',
+                 model_name_out = None
                  ):
         
         self.model = model
+
+        if model_name_out is None:
+            self.model_name_out = model
+        else:
+            self.model_name_out = model_name_out
+
         self.mode = mode
         self.lens_table_path = lens_table_path
         self.bin_width = bin_width
@@ -93,7 +103,7 @@ class MCMC:
         if model not in ['ANN', 'GP', 'wmean']:
             raise ValueError('model not known, only available ANN or GP')
         
-        if model == 'GP':
+        if 'GP' in model:
             # there are no values for some lenses 
             self.lens_table = self.lens_table[(self.lens_table['dd_GP']>0)] 
             print(f" Using table with {len(self.lens_table)} values")
@@ -125,7 +135,7 @@ class MCMC:
 
         if self.output_folder is None:
             self.output_folder = os.path.join(path_project, 'Output',
-                            f"{self.model}_gamma-{self.param_fit}_{self.mode}_nw_{nwalkers}_ns_{nsteps}")
+                            f"{self.model_name_out}_gamma-{self.param_fit}_{self.mode}_nw_{nwalkers}_ns_{nsteps}")
 
         if self.binned:
             self.hist, _ = np.histogram(self.lens_table['zl'], bins=self.bin_edges)
@@ -312,14 +322,16 @@ class MCMC:
                                                 #args=(theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
                                                 args = args,
                                                 pool=pool,
-                                                backend=backend)
+                                                backend=backend,
+                                               )
                 elif self.ndim == 2 and self.mode==['linear', 'direct']:
                     
                     sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
                                 args = args,
                                 pool=pool,
                                 #(zl_arr,theta_E_r_arr, theta_ap_r_arr, sigma_ap_arr, dd_arr, abs_delta_sigma_ap_arr, abs_delta_dd_arr),
-                                backend=backend)
+                                backend=backend,
+                               )
                 else:
                     raise ValueError('no sampler available for this number of x_ini')
                 
@@ -453,8 +465,8 @@ class MCMC:
         plt.tight_layout()
 
         if self.bin_width is not None:
-            plt.suptitle(f'{self.model} fixed {self.bin_width}  bin',y=1.05, fontsize = 16)
-        if self.elements_per_bin is not None:
+            plt.suptitle(f'{self.model} fixed, bin width = {self.bin_width}  bin',y=1.05, fontsize = 16)
+        elif self.elements_per_bin is not None:
             plt.suptitle(f'{self.model} adaptive # {self.elements_per_bin} per bin',y=1.05, fontsize = 16)
         plt.savefig(os.path.join(output_folder, plot_name), transparent=False, facecolor='white', bbox_inches='tight' )
         plt.close()
@@ -496,9 +508,9 @@ class MCMC:
         y, _, y_err = self.calculate_statistics()
 
         if self.bin_width is not None:
-            label = f'{self.model} fixed {self.bin_width}  bin'
-        if self.elements_per_bin is not None:
-            label = f'{self.model} adaptive # {self.elements_per_bin} per bin'
+            label = f'{self.model} bin fixed width={self.bin_width}'
+        elif self.elements_per_bin is not None:
+            label = f'{self.model} adaptive  $\sim$ {self.elements_per_bin} per bin'
         else:
             label = f'{self.model} SGL'
 
