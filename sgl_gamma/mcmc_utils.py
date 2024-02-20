@@ -8,6 +8,8 @@ import os
 import math
 
 c = c.to('km/s').value
+#beta used as 
+beta_manga = 0.109
 
 def f_gamma(x):
         a = -1 / np.sqrt(np.pi)
@@ -158,7 +160,7 @@ def d_th_prime(x,theta, theta_ap, sigma,delta, beta):
 
 def lnprob_K_2D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
     g0, d0 = g
-    beta = 0.18
+    beta = beta_manga
     total_lnlike = 0
 
     # Iterate over each row in the fits table
@@ -182,10 +184,48 @@ def lnprob_K_2D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta
 
     return total_lnlike
 
+def lnprob_K_3D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
+    g0, d0, beta = g
+    total_lnlike = 0
+
+    # Define the lower limit (a), peak (c), and upper limit (b) of the triangular distribution for beta
+    a, c, b = -0.356, 0.002, 0.512  # Adjust these values as needed
+    
+    # Check if beta is within the bounds of the triangular distribution
+    if not (a <= beta <= b):
+        return -np.inf
+
+    # Compute the log of the triangular prior for beta
+    if a <= beta <= c:
+        ln_prior_beta = np.log(2 * (beta - a) / ((b - a) * (c - a)))
+    else: # c < beta <= b
+        ln_prior_beta = np.log(2 * (b - beta) / ((b - a) * (b - c)))
+
+    # Iterate over each row in the fits table
+    for i in range(len(theta)):
+        x = g0
+        delta = d0
+        f_g = f_prime(x, delta, beta)
+
+        # Check if x, delta, and f_g are within the desired range
+        if not (1.2 < x < 2.8 and 1.2 < delta < 2.8 and f_g > 0.):
+            return -np.inf
+
+        # Check if f_prime result is NaN
+        f_prime_result = f_prime(x, delta, beta)
+        if np.isnan(f_prime_result):
+            return -np.inf
+
+        # Compute the log-likelihood for this row
+        total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i], 
+                                      abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
+
+    # Return the total log-likelihood plus the log-prior for beta
+    return total_lnlike + ln_prior_beta
+'''
 
 def lnprob_K_3D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
     g0, d0,beta = g
-    # beta = 0.18
     total_lnlike = 0
 
     # Iterate over each row in the fits table
@@ -194,7 +234,7 @@ def lnprob_K_3D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta
         delta = d0
         f_g = f_prime(x, delta, beta)
         # Check if x, delta, and beta are within the desired range
-        if not (1.2 < x < 2.8 and 1.2 < delta < 2.8 and -2.<beta<1 and f_g>0.):
+        if not (1.2 < x < 2.8 and 1.2 < delta < 2.8 and -0.287<beta<0.505 and f_g>0.):
             return -np.inf
 
         # Check if f_prime result is NaN
@@ -210,10 +250,10 @@ def lnprob_K_3D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta
     return total_lnlike
 
 
-
+'''
 def lnprob_K_4D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
     g0, g1, d0,d1 = g
-    beta = 0.18
+    beta = beta_manga
     total_lnlike = 0
 
     # Iterate over each row in the fits table
@@ -234,10 +274,9 @@ def lnprob_K_4D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta
         total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i], 
                                       abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
     return total_lnlike
-
+'''
 def lnprob_K_5D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
     g0, g1, d0,d1,beta = g
-    # beta = 0.18
     total_lnlike = 0
 
     # Iterate over each row in the fits table
@@ -247,7 +286,7 @@ def lnprob_K_5D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta
         delta = delta_z1(d0,d1,zl[i])
         f_g = f_prime(x, delta, beta)
         # Check if x, delta, and beta are within the desired range
-        if not (1.2 < x < 2.8 and 1.2 < delta < 2.8 and -2.<beta<1 and f_g>0.):
+        if not (1.2 < x < 2.8 and 1.2 < delta < 2.8 and -0.287<beta<0.505 and f_g>0.):
             return -np.inf
 
         # Check if f_prime result is NaN
@@ -260,6 +299,45 @@ def lnprob_K_5D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta
                                       abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
 
     return total_lnlike
+'''
+def lnprob_K_5D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
+    g0, g1, d0, d1, beta = g
+    total_lnlike = 0
+
+    # Define the lower limit (a), peak (c), and upper limit (b) of the triangular distribution for beta
+    a, c, b = -0.356, 0.002, 0.512  # Adjust these values as needed
+    
+    # Check if beta is within the bounds of the triangular distribution
+    if not (a <= beta <= b):
+        return -np.inf
+
+    # Compute the log of the triangular prior for beta
+    if a <= beta <= c:
+        ln_prior_beta = np.log(2 * (beta - a) / ((b - a) * (c - a)))
+    else: # c < beta <= b
+        ln_prior_beta = np.log(2 * (b - beta) / ((b - a) * (b - c)))
+
+    # Iterate over each row in the fits table
+    for i in range(len(theta)):
+        x = gamma_z1(g0, g1, zl[i])
+        delta = delta_z1(d0, d1, zl[i])
+        f_g = f_prime(x, delta, beta)
+
+        # Check if x, delta, and f_g are within the desired range
+        if not (1.2 < x < 2.8 and 1.2 < delta < 2.8 and f_g > 0.):
+            return -np.inf
+
+        # Check if f_prime result is NaN
+        f_prime_result = f_prime(x, delta, beta)
+        if np.isnan(f_prime_result):
+            return -np.inf
+
+        # Compute the log-likelihood for this row
+        total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i], 
+                                      abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
+
+    # Return the total log-likelihood plus the log-prior for beta
+    return total_lnlike + ln_prior_beta
 
 
 def delta_z1(d0,d1,z):

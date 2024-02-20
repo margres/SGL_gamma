@@ -3,7 +3,7 @@ from rec_dd_ann import ANN
 from rec_gamma_mcmc import MCMC
 import os
 from rec_fsolve import add_fsolve_table
-from combined_gamma import combined_dd
+from combined_gamma import combined_dd, lenstable_cut_by_z
 
 
 # Get the path of the current script
@@ -13,38 +13,51 @@ path_project =  os.path.dirname(os.path.dirname(script_path))
 
 print(f'Path in which your output will be saved {path_project}')
 
-lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.csv')
+
+lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.fits')
 nwalkers = 200
 nsteps = 20000
 #if true runs usinf the checkpoint system
 checkpoint = True
 ncpu = None
+wmean = False
+table_CC = 'Hz-34.txt'
+cut_table = False
+name_model_list = ['GP', 'ANN']
+
+# shortens the table used for mcmc accordinly to max('zs') of the table_cc
+if cut_table:
+    lens_table_path = lenstable_cut_by_z(lens_table_path, table_CC, return_tab_path=True)
 
 
 ## run the GP
 print( '\n ************** running the GP reconstruction ************** \n')
-GP = GP(lens_table_path =lens_table_path, path_project=path_project)
+GP = GP(lens_table_path =lens_table_path, path_project=path_project, table_CC= table_CC )
 GP.main()
-#add_fsolve_table(path_project , GP.output_table)
+add_fsolve_table(path_project , GP.output_table)
 print('Done! \n')
+
 
 #### run the ann 
 print(' \n  ************** running the ANN reconstruction ************** ' )
-ANN = ANN(path_project=path_project,  lens_table_path='/home/grespanm/github/SLcosmological_parameters/SGL_gamma/Output/Combined_dd/SGLTable_combined_ANNGP.fits')
+ANN = ANN(path_project=path_project, 
+        lens_table_path=lens_table_path)
 ANN.main()
-#add_fsolve_table(path_project , ANN.output_table)
+add_fsolve_table(path_project , ANN.output_table)
 print('Done! \n')
 
 print('Calculating weighted mean of dd from GP and ANN')
 
-combined_tab = combined_dd(GP.output_table, ANN.output_table, 
-            output_folder= os.path.join(path_project, 'Output', 'Combined_dd' ),
-            return_table_path=True)
+if wmean:
+    combined_tab = combined_dd(GP.output_table, ANN.output_table, 
+                output_folder= os.path.join(path_project, 'Output', 'Combined_dd' ),
+                return_table_path=True)
 
-for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.output_table, combined_tab ]) :
 
-#for name_model, table  in zip(['GP', 'ANN'],[GP.output_table, ANN.output_table ]) :
+table_list = [GP.output_table, ANN.output_table ]
 
+
+for name_model, table  in zip(name_model_list, table_list) :
     if  name_model =='GP':
         color_points = '#d00000'
     if  name_model=='ANN':
@@ -98,7 +111,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
     mcmc_linear.main()
     print('Done! \n')
 
-    '''
+
             
     print(' \n  ************** Koopmans power law 2d fixed beta ************** ' ) 
     mcmc_K_beta = MCMC(lens_table_path = mcmc.output_table ,
@@ -121,7 +134,7 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
     print(' \n  ************** Koopmans power law 4d fixed beta ************** ' ) 
     mcmc_K_beta = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
-                model=name_model, nwalkers=nwalkers, nsteps = nsteps, mode='Koopmans_4D',  x_ini= [2.0,0.0,2.0,0.0],
+                model=name_model, nwalkers=400, nsteps = nsteps, mode='Koopmans_4D',  x_ini= [2.0,0.0,2.0,0.0],
                 checkpoint=checkpoint, ncpu=ncpu, color_points=color_points)
     mcmc_K_beta.main()    
     print('Done! \n')
@@ -129,8 +142,8 @@ for name_model, table  in zip(['GP', 'ANN', 'wmean'],[GP.output_table, ANN.outpu
     print(' \n  ************** Koopmans power law 5d ************** ' )    
     mcmc_K = MCMC(lens_table_path = mcmc.output_table ,
                     path_project=path_project,
-                model=name_model, nwalkers=nwalkers, nsteps = nsteps, mode='Koopmans_5D',  x_ini= [2.0, 0.0, 2.0, 0.0, 0.0],
+                model=name_model, nwalkers=400, nsteps = 6000, mode='Koopmans_5D',  x_ini= [2.0, 0.0, 2.0, 0.0, 0.0],
                 checkpoint=checkpoint, ncpu=ncpu, color_points=color_points)
     mcmc_K.main()
     print('Done! \n')
-    '''
+

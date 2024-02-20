@@ -50,7 +50,8 @@ class MCMC:
         self.color_points = color_points
         
         # Load lens table
-        self.lens_table = Table.read(self.lens_table_path, format='csv')
+        format = self.lens_table_path.split('.')[-1]
+        self.lens_table = Table.read(self.lens_table_path, format=format)
         print(f'Table has {len(self.lens_table)} elements')
         self.binned = True
         self.output_folder = output_folder

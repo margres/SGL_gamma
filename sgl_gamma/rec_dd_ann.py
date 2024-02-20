@@ -27,6 +27,7 @@ class ANN:
                    ):
         
         self.path_project = path_project
+        
         self.lens_table_path = lens_table_path
         if data is None:
             self.data = self.read_data()
@@ -140,7 +141,9 @@ class ANN:
             print('Training the model')
             self.train_model(X,Y,X_val, Y_val)
         
-        SL = Table.read(self.lens_table_path, format='csv')
+        format = self.lens_table_path.split('.')[-1]
+
+        SL = Table.read(self.lens_table_path, format=format)
         dd, dd_e = self.distance_ratio(SL['zl'],SL['zs'])
         SL['dd_ANN'] = dd
         SL['dd_error_ANN'] = dd_e

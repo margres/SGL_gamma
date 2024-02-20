@@ -22,7 +22,8 @@ class GP:
         self.output_folder =  os.path.join(self.path_project,'Output', 'GP')
         self.output_table = os.path.join(self.output_folder, 'SGLTable_GP.csv')
         self.lens_table_path = lens_table_path
-        self.lens_table = Table.read(self.lens_table_path, format='csv')
+        format = self.lens_table_path.split('.')[-1]
+        self.lens_table = Table.read(self.lens_table_path, format=format)
         self.output_name = 'hz_reconstructed_GP.npy'
 
         # Open file with the correct encoding
