@@ -6,6 +6,7 @@
 Output/ANN/*fits
 Output/ANN/*.png
 Output/ANN/*.csv
+Output/ANN35*
 Output/wmean*
 Output/ANN34*
 Output/GP*

@@ -23,7 +23,11 @@ ncpu = None
 wmean = False
 table_CC = 'Hz-35.txt'
 cut_table = True
+
+#please write first the GP and then ANN
 name_model_list = ['GP', 'ANN']
+
+#this can be None
 model_name_out_list = ['GP35', 'ANN35']
 
 # shortens the table used for mcmc accordinly to max('zs') of the table_cc
@@ -33,7 +37,9 @@ if cut_table:
 
 ## run the GP
 print( '\n ************** running the GP reconstruction ************** \n')
-GP = GP(lens_table_path =lens_table_path, path_project=path_project, table_CC= table_CC )
+GP = GP(lens_table_path =lens_table_path, 
+        path_project=path_project, table_CC= table_CC , 
+        output_folder = model_name_out_list[0]  )
 GP.main()
 add_fsolve_table(path_project , GP.output_table)
 print('Done! \n')
@@ -42,7 +48,8 @@ print('Done! \n')
 #### run the ann 
 print(' \n  ************** running the ANN reconstruction ************** ' )
 ANN = ANN(path_project=path_project, 
-        lens_table_path=lens_table_path)
+        lens_table_path=lens_table_path,
+        output_folder = model_name_out_list[1])
 ANN.main()
 add_fsolve_table(path_project , ANN.output_table)
 print('Done! \n')

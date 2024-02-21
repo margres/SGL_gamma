@@ -23,7 +23,8 @@ class ANN:
                  data=None, 
                  model=None, metric='mse',
                  epochs= 300,  
-                 save_model_as='weights_ANN.h5'
+                 save_model_as='weights_ANN.h5',
+                 output_folder =None
                    ):
         
         self.path_project = path_project
@@ -36,7 +37,10 @@ class ANN:
         self.loss_list = ['mae', 'mse']
         self.epochs = epochs
         self.results = self.data[1350:] 
-        self.output_folder = os.path.join(self.path_project, 'Output', 'ANN') 
+        if output_folder is None:
+            self.output_folder = os.path.join(self.path_project, 'Output', 'ANN') 
+        else:
+            self.output_folder = os.path.join(self.path_project, 'Output', output_folder) 
         self.save_model_as = save_model_as
         self.output_table = os.path.join(self.output_folder, 'SGLTable_ANN.csv')
 

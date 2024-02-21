@@ -510,7 +510,7 @@ class MCMC:
         if self.bin_width is not None:
             label = f'{self.model} bin fixed width={self.bin_width}'
         elif self.elements_per_bin is not None:
-            label = f'{self.model} adaptive  $\sim$ {self.elements_per_bin} per bin'
+            label = f'{self.model} adaptive  $\sim$ {self.elements_per_bin} SGL per bin'
         else:
             label = f'{self.model} SGL'
 

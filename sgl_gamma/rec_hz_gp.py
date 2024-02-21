@@ -15,11 +15,16 @@ class GP:
                  lens_table_path,
                  path_project,
                  table_CC='Hz-34.txt', folder_data='Data',
-                 force_run =  False
+                 force_run =  False,
+                 output_folder =None
                  ):
         
         self.path_project = path_project
-        self.output_folder =  os.path.join(self.path_project,'Output', 'GP')
+        if output_folder is None:
+            self.output_folder =  os.path.join(self.path_project,'Output', 'GP')
+        else:
+            self.output_folder =  os.path.join(self.path_project,'Output', output_folder)
+
         self.output_table = os.path.join(self.output_folder, 'SGLTable_GP.csv')
         self.lens_table_path = lens_table_path
         format = self.lens_table_path.split('.')[-1]
