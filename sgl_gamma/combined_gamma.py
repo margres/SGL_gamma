@@ -5,6 +5,7 @@ from astropy.table import Table
 from utils_plot import plot_point_with_fit
 import warnings
 warnings.filterwarnings("ignore")
+import io
 
 def weighted_mean(values, errors):
 
@@ -91,7 +92,7 @@ def lenstable_cut_by_z(lens_table_path,
     lens_table = Table.read(lens_table_path, format=format)
     cc_path = os.path.join(path_project, 'Data' ,cc_file )
 
-    n = cc_file.split('-')[:2]
+    n = cc_file.split('-')[1][:2]
     
     # Open file with the correct encoding
     with io.open(os.path.join(path_project, cc_path), 'r', encoding='utf-8') as f:
@@ -99,7 +100,7 @@ def lenstable_cut_by_z(lens_table_path,
         
     z_max = np.max(Z)
 
-    output_path = os.path.join(path_project, f'SGLTable-{n}.{format}')
+    output_path = os.path.join(path_project, 'Data', f'SGLTable-{n}.{format}')
 
     lens_table[lens_table['zs']<=z_max].write(output_path, 
                                               format =format, overwrite = True)

@@ -21,10 +21,10 @@ nsteps = 20000
 checkpoint = True
 ncpu = None
 wmean = False
-table_CC = 'Hz-34.txt'
-cut_table = False
+table_CC = 'Hz-35.txt'
+cut_table = True
 name_model_list = ['GP', 'ANN']
-model_name_out = ['GP', 'ANN']
+model_name_out_list = ['GP35', 'ANN35']
 
 # shortens the table used for mcmc accordinly to max('zs') of the table_cc
 if cut_table:
@@ -58,7 +58,7 @@ if wmean:
 table_list = [GP.output_table, ANN.output_table ]
 
 
-for name_model, table  in zip(name_model_list, table_list) :
+for name_model, table,model_name_out  in zip(name_model_list, table_list, model_name_out_list) :
     if 'GP' in  name_model :
         color_points = '#d00000'
     if  'ANN' in name_model:
