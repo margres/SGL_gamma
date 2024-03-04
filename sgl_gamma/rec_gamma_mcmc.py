@@ -35,7 +35,9 @@ class MCMC:
                  force_run = False,
                  force_plots = True,
                  color_points = 'firebrick',
-                 model_name_out = None
+                 model_name_out = None,
+                 column_sigma_ap = 'sigma_ap',
+                 column_theta_ap  = 'theta_ap'
                  ):
         
         self.model = model
@@ -58,7 +60,9 @@ class MCMC:
         self.chain_info_list = []
         self.force_plots = force_plots
         self.color_points = color_points
-        
+        self.column_sigma_ap = column_sigma_ap
+        self.column_theta_ap = column_theta_ap
+
         # Load lens table
         format = self.lens_table_path.split('.')[-1]
         self.lens_table = Table.read(self.lens_table_path, format=format)
@@ -207,8 +211,8 @@ class MCMC:
 
         zl = row['zl']
         theta_E_r = row['theta_E'] * u.arcsec.to('radian')
-        theta_ap_r = row['theta_ap'] * u.arcsec.to('radian')
-        sigma_ap = row['sigma_ap']
+        theta_ap_r = row[self.column_theta_ap] * u.arcsec.to('radian')
+        sigma_ap = row[self.column_sigma_ap]
         dd = row[f'dd_{self.model}']
     
         # uncertainties, global values

@@ -21,20 +21,20 @@ nsteps = 20000
 checkpoint = True
 ncpu = None
 wmean = False
-table_CC = 'Hz-35.txt'
-cut_table = True
+table_CC = 'Hz-34.txt'
+cut_table = False
 
 #please write first the GP and then ANN
-name_model_list = ['GP', 'ANN']
+name_model_list = [ 'ANN']
 
 #this can be None
-model_name_out_list = ['GP35', 'ANN35']
+model_name_out_list = ['ANN34']
 
 # shortens the table used for mcmc accordinly to max('zs') of the table_cc
 if cut_table:
     lens_table_path = lenstable_cut_by_z(lens_table_path, table_CC, return_tab_path=True)
 
-
+'''
 ## run the GP
 print( '\n ************** running the GP reconstruction ************** \n')
 GP = GP(lens_table_path =lens_table_path, 
@@ -43,13 +43,13 @@ GP = GP(lens_table_path =lens_table_path,
 GP.main()
 add_fsolve_table(path_project , GP.output_table)
 print('Done! \n')
-
+'''
 
 #### run the ann 
 print(' \n  ************** running the ANN reconstruction ************** ' )
 ANN = ANN(path_project=path_project, 
         lens_table_path=lens_table_path,
-        output_folder = model_name_out_list[1])
+        output_folder = model_name_out_list[0])
 ANN.main()
 add_fsolve_table(path_project , ANN.output_table)
 print('Done! \n')
@@ -62,7 +62,7 @@ if wmean:
                 return_table_path=True)
 
 
-table_list = [GP.output_table, ANN.output_table ]
+table_list = [ ANN.output_table ]
 
 
 for name_model, table,model_name_out  in zip(name_model_list, table_list, model_name_out_list) :

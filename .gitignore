@@ -18,6 +18,9 @@ ANN_small.py
 *.npy
 MaNGA*
 Plots_paper*
+main_shuaibo*
+main_ann*
+*culprit*
 
 # C extensions
 *.so
