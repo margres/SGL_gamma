@@ -9,7 +9,7 @@ import math
 
 c = c.to('km/s').value
 #beta used as 
-beta_manga = 0.109
+beta_manga = 0.002
 
 def f_gamma(x):
         a = -1 / np.sqrt(np.pi)
@@ -251,6 +251,8 @@ def lnprob_K_3D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta
 
 
 '''
+
+
 def lnprob_K_4D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
     g0, g1, d0,d1 = g
     beta = beta_manga
@@ -274,8 +276,11 @@ def lnprob_K_4D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta
         total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i], 
                                       abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
     return total_lnlike
-'''
+
 def lnprob_K_5D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
+    
+    #5d with flat prior
+    
     g0, g1, d0,d1,beta = g
     total_lnlike = 0
 
@@ -299,46 +304,233 @@ def lnprob_K_5D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta
                                       abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
 
     return total_lnlike
-'''
-def lnprob_K_5D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
+
+# def lnprob_K_5D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
+#     g0, g1, d0, d1, beta = g
+#     total_lnlike = 0
+
+#     # Define the lower limit (a), peak (c), and upper limit (b) of the triangular distribution for beta
+#     a, c, b = -0.356, 0.002, 0.512  # Adjust these values as needed
+    
+#     # Check if beta is within the bounds of the triangular distribution
+#     if not (a <= beta <= b):
+#         return -np.inf
+
+#     # Compute the log of the triangular prior for beta
+#     if a <= beta <= c:
+#         ln_prior_beta = np.log(2 * (beta - a) / ((b - a) * (c - a)))
+#     else: # c < beta <= b
+#         ln_prior_beta = np.log(2 * (b - beta) / ((b - a) * (b - c)))
+
+#     # Iterate over each row in the fits table
+#     for i in range(len(theta)):
+#         x = gamma_z1(g0, g1, zl[i])
+#         delta = delta_z1(d0, d1, zl[i])
+#         f_g = f_prime(x, delta, beta)
+
+#         # Check if x, delta, and f_g are within the desired range
+#         if not (1.2 < x < 2.8 and 1.2 < delta < 2.8 and f_g > 0.):
+#             return -np.inf
+
+#         # Check if f_prime result is NaN
+#         f_prime_result = f_prime(x, delta, beta)
+#         if np.isnan(f_prime_result):
+#             return -np.inf
+
+#         # Compute the log-likelihood for this row
+#         total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i], 
+#                                       abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
+
+#     # Return the total log-likelihood plus the log-prior for beta
+#     return total_lnlike + ln_prior_beta
+
+# def delta_z1(d0,d1,z):
+#     return d0+d1*z
+
+# def lnprob_K_5D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
+#     g0, g1, d0, d1, beta = g
+#     total_lnlike = 0
+    
+#     # Define the mean (mu) and standard deviation (sigma) of the Gaussian distribution for beta
+#     mu, sigma_beta = 0.22, 0.2  # Adjust these values as needed
+    
+#     # Compute the log of the Gaussian prior for beta
+#     ln_prior_beta = -0.5 * np.log(2 * np.pi * sigma_beta**2) - ((beta - mu)**2 / (2 * sigma_beta**2))
+    
+#     # Iterate over each row in the fits table
+#     for i in range(len(theta)):
+#         x = gamma_z1(g0, g1, zl[i])
+#         delta = delta_z1(d0, d1, zl[i])
+#         f_g = f_prime(x, delta, beta)
+        
+#         # Check if x, delta, and f_g are within the desired range
+#         if not (1.2 < x < 2.8 and 1.2 < delta < 2.8 and f_g > 0.):
+#             return -np.inf
+        
+#         # Check if f_prime result is NaN
+#         if np.isnan(f_g):
+#             return -np.inf
+        
+#         # Compute the log-likelihood for this row
+#         total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i],
+#                                       abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
+    
+#     # Return the total log-likelihood plus the log-prior for beta
+#     return total_lnlike + ln_prior_beta
+
+
+###============================================================================
+
+def delta_z1_scale(d0,d1,z):
+    return d0+d1*z/(1.+z)
+def gamma_z1_scale(g0,g1,z):
+    return g0+g1*z/(1.+z)
+
+def lnprob_K_5D_scale(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
+    ## scale evolved
     g0, g1, d0, d1, beta = g
     total_lnlike = 0
-
-    # Define the lower limit (a), peak (c), and upper limit (b) of the triangular distribution for beta
-    a, c, b = -0.356, 0.002, 0.512  # Adjust these values as needed
     
-    # Check if beta is within the bounds of the triangular distribution
-    if not (a <= beta <= b):
-        return -np.inf
-
-    # Compute the log of the triangular prior for beta
-    if a <= beta <= c:
-        ln_prior_beta = np.log(2 * (beta - a) / ((b - a) * (c - a)))
-    else: # c < beta <= b
-        ln_prior_beta = np.log(2 * (b - beta) / ((b - a) * (b - c)))
-
+    # Define the mean (mu) and standard deviation (sigma) of the Gaussian distribution for beta
+    mu, sigma_beta = 0.22, 0.2  # Adjust these values as needed
+    
+    # Compute the log of the Gaussian prior for beta
+    ln_prior_beta = -0.5 * np.log(2 * np.pi * sigma_beta**2) - ((beta - mu)**2 / (2 * sigma_beta**2))
+    
     # Iterate over each row in the fits table
     for i in range(len(theta)):
-        x = gamma_z1(g0, g1, zl[i])
-        delta = delta_z1(d0, d1, zl[i])
+        x = gamma_z1_scale(g0, g1, zl[i])
+        delta = delta_z1_scale(d0, d1, zl[i])
         f_g = f_prime(x, delta, beta)
-
+        
         # Check if x, delta, and f_g are within the desired range
         if not (1.2 < x < 2.8 and 1.2 < delta < 2.8 and f_g > 0.):
             return -np.inf
-
+        
         # Check if f_prime result is NaN
-        f_prime_result = f_prime(x, delta, beta)
-        if np.isnan(f_prime_result):
+        if np.isnan(f_g):
             return -np.inf
-
+        
         # Compute the log-likelihood for this row
-        total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i], 
+        total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i],
                                       abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
-
+    
     # Return the total log-likelihood plus the log-prior for beta
     return total_lnlike + ln_prior_beta
 
+###============================================================================
 
-def delta_z1(d0,d1,z):
-    return d0+d1*z
+def delta_z1_log(d0,d1,z):
+    
+     return d0+d1*np.log(1.+z)
+    
+def gamma_z1_log(g0,g1,z):
+    
+    return g0+g1**np.log(1.+z)
+
+def lnprob_K_5D_log(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
+     ## log evolved
+     
+    g0, g1, d0, d1, beta = g
+    total_lnlike = 0
+
+    # Define the mean (mu) and standard deviation (sigma) of the Gaussian distribution for beta
+    mu, sigma_beta = 0.22, 0.2  # Adjust these values as needed
+    
+     # Compute the log of the Gaussian prior for beta
+    ln_prior_beta = -0.5 * np.log(2 * np.pi * sigma_beta**2) - ((beta - mu)**2 / (2 * sigma_beta**2))
+    
+    # Iterate over each row in the fits table
+    for i in range(len(theta)):
+        x = gamma_z1_log(g0, g1, zl[i])
+        delta = delta_z1_log(d0, d1, zl[i])
+        f_g = f_prime(x, delta, beta)
+        
+         # Check if x, delta, and f_g are within the desired range
+        if not (1.2 < x < 2.8 and 1.2 < delta < 2.8 and f_g > 0.):
+            return -np.inf
+        
+        # Check if f_prime result is NaN
+        if np.isnan(f_g):
+            return -np.inf
+        
+         # Compute the log-likelihood for this row
+        total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i],
+                                       abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
+    
+     # Return the total log-likelihood plus the log-prior for beta
+    return total_lnlike + ln_prior_beta
+
+
+# def gamma_z2(g0,gz,z,gs,sigma):
+#     return g0+gz*(z-0.3)+gs*(np.log10(sigma)-np.log10(246.44))
+
+# def delta_z2(d0,dz,z,ds,sigma):
+#     return d0+dz*(z-0.3)+ds*(np.log10(sigma)-np.log10(246.44))
+
+# def lnprob_K_6D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
+#     g0, gz, gs, d0, dz, ds = g
+#     total_lnlike = 0
+#     beta = 0.22
+    
+#     # # Define the mean (mu) and standard deviation (sigma) of the Gaussian distribution for beta
+#     # mu, sigma_beta = 0.22, 0.2  # Adjust these values as needed
+    
+#     # # Compute the log of the Gaussian prior for beta
+#     # ln_prior_beta = -0.5 * np.log(2 * np.pi * sigma_beta**2) - ((beta - mu)**2 / (2 * sigma_beta**2))
+    
+#     # Iterate over each row in the fits table
+#     for i in range(len(theta)):
+#         x = gamma_z2(g0,gz,zl[i],gs,sigma[i])
+#         delta = delta_z2(d0,dz,zl[i],ds,sigma[i])
+#         f_g = f_prime(x, delta, beta)
+        
+#         # Check if x, delta, and f_g are within the desired range
+#         if not (1.2 < x < 2.8 and 1.2 < delta < 2.8 and f_g > 0.):
+#             return -np.inf
+        
+#         # Check if f_prime result is NaN
+#         if np.isnan(f_g):
+#             return -np.inf
+        
+#         # Compute the log-likelihood for this row
+#         total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i],
+#                                       abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
+    
+#     # Return the total log-likelihood plus the log-prior for beta
+#     return total_lnlike
+
+# def lnprob_K_7D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
+#     g0, gz, gs, d0, dz, ds, beta = g
+#     total_lnlike = 0
+    
+#     # Define the mean (mu) and standard deviation (sigma) of the Gaussian distribution for beta
+#     mu, sigma_beta = 0.22, 0.2  # Adjust these values as needed
+    
+#     # Compute the log of the Gaussian prior for beta
+#     ln_prior_beta = -0.5 * np.log(2 * np.pi * sigma_beta**2) - ((beta - mu)**2 / (2 * sigma_beta**2))
+    
+#     # Iterate over each row in the fits table
+#     for i in range(len(theta)):
+#         x = gamma_z2(g0,gz,zl[i],gs,sigma[i])
+#         delta = delta_z2(d0,dz,zl[i],ds,sigma[i])
+#         f_g = f_prime(x, delta, beta)
+        
+#         # Check if x, delta, and f_g are within the desired range
+#         if not (1.2 < x < 2.8 and 1.2 < delta < 2.8 and f_g > 0.):
+#             return -np.inf
+        
+#         # Check if f_prime result is NaN
+#         if np.isnan(f_g):
+#             return -np.inf
+        
+#         # Compute the log-likelihood for this row
+#         total_lnlike += np.log(lnlike(x, theta[i], theta_ap[i], sigma[i], dd[i],
+#                                       abs_delta_sigma_ap[i], abs_delta_dd[i], delta, beta))
+    
+#     # Return the total log-likelihood plus the log-prior for beta
+#     return total_lnlike + ln_prior_beta
+
+
+# def delta_z1(d0,d1,z):
+#     return d0+d1*z

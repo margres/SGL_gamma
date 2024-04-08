@@ -8,7 +8,7 @@ from astropy import units as u
 from astropy import constants as const
 import matplotlib.pyplot as plt
 from datetime import datetime
-from mcmc_utils import lnprob, lnprobdirect, lnproblinear, lnprob_K_5D, lnprob_K_4D, lnprob_K_3D, lnprob_K_2D
+from mcmc_utils import lnprob, lnprobdirect, lnproblinear, lnprob_K_5D, lnprob_K_4D, lnprob_K_3D, lnprob_K_2D, lnprob_K_5D_log, lnprob_K_5D_scale
 import random
 from multiprocessing import Pool
 from utils_plot import plot_point_with_fit, plot_GetDist,plot_hist_bins
@@ -28,7 +28,7 @@ class MCMC:
                  bin_width=None, elements_per_bin=None, nsteps=5000, 
                  nwalkers=500, ndim=None, ncpu=None,  burnin = None,
                  all_ln_probs=None,all_samples=None,
-                 lnprob_touse = lnprob, x_ini=[2],
+                 lnprob_touse = None, x_ini=[2],
                  nsteps_per_checkpoint = 1000,
                  checkpoint=True,
                  param_fit = 'zl',
@@ -81,23 +81,26 @@ class MCMC:
             print(f'ncpu not specified, using all the {self.ncpu} cpu ')
         else:
             self.ncpu = ncpu
-
-        if mode=='linear':
-            self.lnprob_touse = lnproblinear
-        elif mode == 'direct':
-            self.lnprob_touse = lnprobdirect
-        elif mode =='':
+        if lnprob_touse is None or lnprob_touse=='':
+            if mode=='linear':
+                self.lnprob_touse = lnproblinear
+            elif mode == 'direct':
+                self.lnprob_touse = lnprobdirect
+            elif mode =='1D':
+                self.lnprob_touse = lnprob
+            elif mode == 'Koopmans_2D':
+                self.lnprob_touse = lnprob_K_2D
+            elif mode == 'Koopmans_3D':
+                self.lnprob_touse = lnprob_K_3D
+            elif mode == 'Koopmans_4D':
+                self.lnprob_touse = lnprob_K_4D
+            elif mode == 'Koopmans_5D':
+                self.lnprob_touse = lnprob_K_5D
+            else:
+                raise ValueError(f'mode {mode} not available ')
+        else: 
             self.lnprob_touse = lnprob_touse
-        elif mode == 'Koopmans_2D':
-            self.lnprob_touse = lnprob_K_2D
-        elif mode == 'Koopmans_3D':
-            self.lnprob_touse = lnprob_K_3D
-        elif mode == 'Koopmans_4D':
-            self.lnprob_touse = lnprob_K_4D
-        elif mode == 'Koopmans_5D':
-            self.lnprob_touse = lnprob_K_5D
-        else:
-            raise ValueError('mode not available ')
+            print('Using the given lnbprob')
         
         if burnin is None:
             self.burnin = int(nsteps*0.1)
@@ -117,22 +120,27 @@ class MCMC:
         if (bin_width is not None) and (elements_per_bin is not None):
             raise ValueError("Only one of bin_width or elements_per_bin should be defined, not both.")
             
-        if (bin_width is None) and (elements_per_bin is None) and  self.mode =='':
+        if (bin_width is None) and (elements_per_bin is None) and  self.mode =='1D':
             print('No binning  - mcmc for every element')
             self.binned = False
             self.mode = 'singular'
-        elif (bin_width is None) and (elements_per_bin is None) and  self.mode !='' :
+        elif (bin_width is None) and (elements_per_bin is None) and  self.mode !='1D' :
             self.binned = False
            
-        if bin_width is not None:
+        if bin_width is not None and  self.mode !='1D' :
             #fixed
             self.mode = 'fixed'
-
+            a = 1./ (1 + self.lens_table['zl'])
+            bins = np.arange(min(a), max(a)+ bin_width, self.bin_width)
+            bin_edges = 1/bins-1
+            self.bin_edges = bin_edges[::-1]
+            '''
             min_z_l = self.lens_table['zl'].min()
             max_z_l = self.lens_table['zl'].max()
             self.bin_edges = np.arange(min_z_l, max_z_l + self.bin_width, self.bin_width)
+            '''
 
-        if elements_per_bin is not None:
+        if elements_per_bin is not None and self.mode !='1D':
             #adaptive
             self.mode = 'adaptive'
             self.bin_edges = np.percentile(self.lens_table['zl'], np.linspace(0, 100, self.elements_per_bin + 1))
@@ -288,7 +296,7 @@ class MCMC:
         else:
             print(f'Number of elements in the table {len(self.lens_table)}')
             subtables = self.lens_table
-            if 'Koopmans' in self.mode:
+            if 'Koopmans' in self.mode or len(self.xini)>2:
                 subtables =  [subtables]
 
         if self.mode in ['linear', 'direct' ]:

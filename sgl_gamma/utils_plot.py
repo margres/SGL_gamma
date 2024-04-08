@@ -14,8 +14,8 @@ def plot_hist_bins(lens_table, bin_edges,
     sns.set(style="whitegrid")
     # Plot the histogram
     plt.hist(lens_table['zl'], bins=bin_edges, color=color_points, alpha=0.7)
-    plt.xlabel('Value')
-    plt.ylabel('Frequency')
+    plt.xlabel('$z_l$')
+    plt.ylabel('Counts')
     plt.title('Histogram with Fixed Number of Elements per Bin')
     plt.savefig(os.path.join(output_folder, plot_name),
                  transparent=False, facecolor='white', bbox_inches='tight')
