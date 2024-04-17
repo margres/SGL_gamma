@@ -37,7 +37,9 @@ class MCMC:
                  color_points = 'firebrick',
                  model_name_out = None,
                  column_sigma_ap = 'sigma_ap',
-                 column_theta_ap  = 'theta_ap'
+                 column_theta_ap  = 'theta_ap',
+                 save_outputs = True,
+                 run_plots = True
                  ):
         
         self.model = model
@@ -62,6 +64,8 @@ class MCMC:
         self.color_points = color_points
         self.column_sigma_ap = column_sigma_ap
         self.column_theta_ap = column_theta_ap
+        self.save_outputs = save_outputs
+        self.run_plots =  run_plots
 
         # Load lens table
         format = self.lens_table_path.split('.')[-1]
@@ -110,7 +114,7 @@ class MCMC:
         if model not in ['ANN', 'GP', 'wmean']:
             raise ValueError('model not known, only available ANN or GP')
         
-        if 'GP' in model:
+        if ('GP' in model) and (mode!='linear'):
             # there are no values for some lenses 
             self.lens_table = self.lens_table[(self.lens_table['dd_GP']>0)] 
             print(f" Using table with {len(self.lens_table)} values")
@@ -127,7 +131,7 @@ class MCMC:
         elif (bin_width is None) and (elements_per_bin is None) and  self.mode !='1D' :
             self.binned = False
            
-        if bin_width is not None and  self.mode !='1D' :
+        if (bin_width is not None) and self.mode =='1D' :
             #fixed
             self.mode = 'fixed'
             a = 1./ (1 + self.lens_table['zl'])
@@ -140,7 +144,7 @@ class MCMC:
             self.bin_edges = np.arange(min_z_l, max_z_l + self.bin_width, self.bin_width)
             '''
 
-        if elements_per_bin is not None and self.mode !='1D':
+        if (elements_per_bin is not None) and self.mode =='1D':
             #adaptive
             self.mode = 'adaptive'
             self.bin_edges = np.percentile(self.lens_table['zl'], np.linspace(0, 100, self.elements_per_bin + 1))
@@ -296,7 +300,7 @@ class MCMC:
         else:
             print(f'Number of elements in the table {len(self.lens_table)}')
             subtables = self.lens_table
-            if 'Koopmans' in self.mode or len(self.xini)>2:
+            if 'Koopmans' in self.mode or len(self.x_ini)>2:
                 subtables =  [subtables]
 
         if self.mode in ['linear', 'direct' ]:
@@ -321,7 +325,11 @@ class MCMC:
             
             # Set up the backend
             # Don't forget to clear it in case the file already exists
-            filename = os.path.join(self.output_folder, f"mcmc_chain.h5")
+            if self.mode=='linear':
+                filename = os.path.join(self.output_folder, f"mcmc_chain_linearfit.h5")
+            else:
+                filename = os.path.join(self.output_folder, f"mcmc_chain.h5")
+
             backend = emcee.backends.HDFBackend(filename)
             backend.reset(self.nwalkers, self.ndim)
             
@@ -336,7 +344,7 @@ class MCMC:
                                                 pool=pool,
                                                 backend=backend,
                                                )
-                elif self.ndim == 2 and self.mode==['linear', 'direct']:
+                elif self.ndim == 2 and self.mode in ['linear', 'direct']:
                     
                     sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob_touse,
                                 args = args,
@@ -391,14 +399,15 @@ class MCMC:
                 
                 self.chain_info_list.append(chain_info)
 
-                pd.DataFrame(self.chain_info_list).to_csv(os.path.join(self.output_folder,'mcmc_chain_log.csv' ))
+                if self.save_outputs:
+                    pd.DataFrame(self.chain_info_list).to_csv(os.path.join(self.output_folder,'mcmc_chain_log.csv' ))
 
                 # Append the samples for this 'z_l' bin to the list of all samples
                 all_samples.append(sampler.get_chain(discard=self.burnin, thin=thin))
                 #all_ln_probs.append(sampler.get_log_prob())
-               
-        # Process and plot the combined results for each 'z_l' bin here
-        np.save(os.path.join(self.output_folder,f'mcmc_samples.npy'),all_samples)
+        if self.save_outputs:
+            # Process and plot the combined results for each 'z_l' bin here
+            np.save(os.path.join(self.output_folder,f'{self.mode}_mcmc_samples.npy'),all_samples)
         #np.save(os.path.join(self.output_folder,f'all_ln_probs{self.mode}.npy'),all_ln_probs)
         self.all_samples = np.array(all_samples)
         #elf.all_ln_probs = np.array(all_ln_probs)
@@ -434,13 +443,19 @@ class MCMC:
         sns.set(style="whitegrid")
         median_x, mean_x, mad_x = self.calculate_statistics()
         
-        # Define the number of subplots per row
-        subplots_per_row = 4
-        #num_rows = len(all_samples) // subplots_per_row
         num_samples = len(self.all_samples)
+        
+        # Define the number of subplots per row
+        if num_samples>4:
+            subplots_per_row = 4
+        else: 
+            subplots_per_row = int(num_samples/2)
+        #num_rows = len(all_samples) // subplots_per_row
+       
         num_rows = (num_samples + subplots_per_row - 1) // subplots_per_row
 
         # Calculate dynamic figsize based on the number of rows
+        
         figsize_per_row = 5  # You can adjust this factor based on your preference
         figsize = (figsize_per_row*subplots_per_row, num_rows * figsize_per_row)
 
@@ -480,8 +495,9 @@ class MCMC:
             plt.suptitle(f'{self.model} fixed, bin width = {self.bin_width}  bin',y=1.05, fontsize = 16)
         elif self.elements_per_bin is not None:
             plt.suptitle(f'{self.model} adaptive # {self.elements_per_bin} per bin',y=1.05, fontsize = 16)
-        plt.savefig(os.path.join(output_folder, plot_name), transparent=False, facecolor='white', bbox_inches='tight' )
-        plt.close()
+    
+            plt.savefig(os.path.join(output_folder, plot_name), transparent=False, facecolor='white', bbox_inches='tight' )
+            plt.close()
         
     def load_samples_and_ln_probs(self):
 
@@ -496,7 +512,7 @@ class MCMC:
         - all_ln_probs: list of arrays, ln_probs for each 'z_l' bin.
         """
 
-        samples_file_path = os.path.join(self.output_folder, f'mcmc_samples.npy')
+        samples_file_path = os.path.join(self.output_folder, f'{self.mode}_mcmc_samples.npy')
         #ln_probs_file_path = os.path.join(self.output_folder, f'all_ln_probs{self.mode}.npy')
 
         if os.path.exists(samples_file_path): #and os.path.exists(ln_probs_file_path):
@@ -520,11 +536,12 @@ class MCMC:
         y, _, y_err = self.calculate_statistics()
 
         if self.bin_width is not None:
-            label = f'{self.model} bin fixed width={self.bin_width}'
+            label = f'bin fixed width = {self.bin_width}'
         elif self.elements_per_bin is not None:
-            label = f'{self.model} adaptive  $\sim$ {self.elements_per_bin} SGL per bin'
+            label = f'adaptive, $\sim$ {self.elements_per_bin} SGL per bin'
         else:
             label = f'{self.model} SGL'
+       
 
 
         plot_point_with_fit(x, y, y_err, 
@@ -532,7 +549,9 @@ class MCMC:
             y_label = '$\gamma$',
             plot_name = plot_name,
             label = label, 
-            output_folder=self.output_folder)
+            output_folder=self.output_folder,
+            title = self.model
+            )
 
     def path_exists(self, output_folder, file_name):
         os.path.exists(os.path.join(output_folder , file_name))
@@ -545,37 +564,38 @@ class MCMC:
             self.run_mcmc()
 
         self.all_samples = np.squeeze(self.all_samples)
-        plot_name = 'Posterior_Dist.png' 
-        # different plottings
-        if (self.mode in ['linear', 'direct']) and (not self.path_exists(self.output_folder, plot_name ) or self.force_plots):
-            param_labels = [r'\gamma_0', r'\gamma_S']
-            plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
+        plot_name = f'Posterior_Dist_{self.mode}.png' 
+        if self.run_plots:
+            # different plottings
+            if (self.mode in ['linear', 'direct']) and (not self.path_exists(self.output_folder,  plot_name ) or self.force_plots):
+                param_labels = [r'\gamma_0', r'\gamma_S']
+                plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder,  plot_name=plot_name)
 
-        elif (self.mode == 'Koopmans_2D') and (not self.path_exists(self.output_folder, plot_name) or self.force_plots):
+            elif (self.mode == 'Koopmans_2D') and (not self.path_exists(self.output_folder, plot_name) or self.force_plots):
 
-            param_labels = [r'\gamma',r'\delta']
-            plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
+                param_labels = [r'\gamma',r'\delta']
+                plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder,  plot_name=plot_name)
 
-        elif (self.mode == 'Koopmans_3D') and (not self.path_exists(self.output_folder, plot_name ) or self.force_plots):
+            elif (self.mode == 'Koopmans_3D') and (not self.path_exists(self.output_folder,  plot_name) or self.force_plots):
 
-            param_labels = [r'\gamma',r'\delta', r'\beta']
-            plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
+                param_labels = [r'\gamma',r'\delta', r'\beta']
+                plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder,  plot_name=plot_name)
 
-        elif (self.mode == 'Koopmans_4D') and (not self.path_exists(self.output_folder, plot_name ) or self.force_plots):
+            elif (self.mode == 'Koopmans_4D') and (not self.path_exists(self.output_folder,  plot_name ) or self.force_plots):
 
-            param_labels = [r'\gamma_0', r'\gamma_S',r'\delta_0',r'\delta_S']
-            plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
+                param_labels = [r'\gamma_0', r'\gamma_S',r'\delta_0',r'\delta_S']
+                plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder,  plot_name=plot_name)
 
-        elif (self.mode =='Koopmans_5D') and (not self.path_exists(self.output_folder, plot_name) or self.force_plots):
+            elif (self.mode =='Koopmans_5D') and (not self.path_exists(self.output_folder,  plot_name) or self.force_plots):
 
-            param_labels = [r'\gamma_0', r'\gamma_S',r'\delta_0',r'\delta_S',r'\beta']
-            plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder)
+                param_labels = [r'\gamma_0', r'\gamma_S',r'\delta_0',r'\delta_S',r'\beta']
+                plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder,  plot_name=plot_name)
 
-        else:
-           
-            if (not self.path_exists(self.output_folder, 'posterior_distribution.png') or self.force_plots):
-                self.plot_post_prob(output_folder = self.output_folder,  plot_name = 'posterior_distribution.png' )
+            else:
+            
+                if (not self.path_exists(self.output_folder,plot_name) or self.force_plots):
+                    self.plot_post_prob(output_folder = self.output_folder,  plot_name =  plot_name)
 
-            if (not self.path_exists(self.output_folder, 'linear_fit_gamma.png') or self.force_plots):
-                self.plot_results(  plot_name = 'linear_fit_gamma.png')
+                if (not self.path_exists(self.output_folder, 'linear_fit_gamma.png') or self.force_plots):
+                    self.plot_results(  plot_name = 'linear_fit_gamma.png')
 

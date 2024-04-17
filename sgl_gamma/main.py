@@ -5,6 +5,24 @@ import os
 from rec_fsolve import add_fsolve_table
 from combined_gamma import combined_dd, lenstable_cut_by_z
 
+
+
+
+def run_linearfit(table_path, output_folder ):
+
+    mcmc_linear = MCMC(lens_table_path =  table_path ,
+                path_project=path_project, 
+                model=name_model, nwalkers = nwalkers, nsteps = nsteps, 
+                mode='linear', x_ini=[2.0, 0],
+                checkpoint=True, color_points=color_points,
+                model_name_out =model_name_out, 
+                output_folder = output_folder,
+                param_fit = 'bin_center'
+                 )
+    mcmc_linear.main()
+    print('Done! \n')
+
+
 #it is also possible to give the wanted lnprob 
 #from mcmc_utils import lnprob_K_5D_log, lnprob_K_5D_scale
 
@@ -24,13 +42,14 @@ checkpoint = True
 ncpu = None
 wmean = False
 table_CC = 'Hz-34.txt'
-cut_table = False
+cut_table = True
+mcmc_linear=True
 
 #please write first the GP and then ANN
 name_model_list = [ 'GP', 'ANN']
 
 #this can be None
-model_name_out_list = ['GP', 'ANN']
+model_name_out_list = ['GP34_scalingfactor', 'ANN34_scalingfactor']
 
 # shortens the table used for mcmc accordinly to max('zs') of the table_cc
 if cut_table:
@@ -74,7 +93,7 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, model_
         color_points = 'royalblue'
     elif name_model=='wmean':
         color_points = '#e3b23c'
-    
+    '''
     print (f' \n  ************** MCMC for {name_model} ************** \n ')
     
     print(f" \n ************** gamma from {table} for every value ************** \n")
@@ -88,18 +107,23 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, model_
     print('Done! \n')
     
 
-    
+    '''
     print(f" \n ************** gamma from {table} for fixed bins ************** \n")
     ## run the mcmc for fixed bins
-    mcmc_instance_binned = MCMC(lens_table_path = table , model=name_model, bin_width=0.1,
+    mcmc_fixed_bins = MCMC(lens_table_path = table , model=name_model, bin_width=0.1,
                             mode='1D',
                             path_project = path_project, nwalkers = nwalkers, nsteps = nsteps,
                             checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
                             model_name_out =model_name_out)
-    mcmc_instance_binned.main()
-
+    mcmc_fixed_bins.main()
     print('Done! \n')
+    
+    if mcmc_linear:
+        print(mcmc_fixed_bins.output_table)
+        run_linearfit(mcmc_fixed_bins.output_table, mcmc_fixed_bins.output_folder)
 
+
+    '''
     print(f" \n ************** gamma from {table} for adaptive bins ************** \n")
     ## run the mcmc for fixed bins
     mcmc_instance_binned = MCMC(lens_table_path = table , model=name_model,
@@ -169,5 +193,5 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, model_
                 model_name_out =model_name_out)
     mcmc_K.main()
     print('Done! \n')
-
+    '''
     

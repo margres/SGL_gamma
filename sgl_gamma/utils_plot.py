@@ -6,7 +6,6 @@ import pandas as pd
 import seaborn as sns
 from scipy.stats import pearsonr
 
-
 def plot_hist_bins(lens_table, bin_edges, 
                    color_points, output_folder, 
                    plot_name = 'hist_zl.png'):
@@ -37,6 +36,7 @@ def plot_point_with_fit(x, y, y_err,
     y_label = '$\gamma$',
     plot_name = 'linear_fit_gamma.png',
     label = 'SGL', 
+    title = 'Linear fit', 
     output_folder=None,
     m=None,
     b=None,
@@ -102,6 +102,7 @@ def plot_point_with_fit(x, y, y_err,
     plt.ylabel(y_label, fontsize = 15)
 
     plt.xlim(min(x)-delta_x, max(x)+delta_x)
+    plt.title(title)
 
     fig.legend(loc='lower left',bbox_to_anchor=((0.12, 0.12)))#loc='upper center', bbox_to_anchor=(0.5, 1.1))
 
@@ -134,13 +135,19 @@ def calculate_marginal_median_and_mad(samples):
 def add_dollar_signs(param_labels):
     return [f"${label}$" for label in param_labels]
 
-def plot_GetDist(samples, param_labels, output_folder, plot_name= 'Posterior_Dist.png' ):
+def plot_GetDist(samples, param_labels, output_folder, 
+                 plot_name= 'Posterior_Dist.png', mode=None):
 
 
     marginal_medians, mads = calculate_marginal_median_and_mad(samples)
-    #print(marginal_medians)
-    pd.DataFrame({'median': marginal_medians, 
-                  'mad': mads}).to_csv(os.path.join(output_folder,'median_mad_posterior_dist.csv' ))
+    
+    if mode is None:
+    
+        pd.DataFrame({'median': marginal_medians, 
+                    'mad': mads}).to_csv(os.path.join(output_folder,f'median_mad_posterior_dist.csv' ))
+    else:
+        pd.DataFrame({'median': marginal_medians, 
+            'mad': mads}).to_csv(os.path.join(output_folder,f'{mode}_median_mad_posterior_dist.csv' ))
 
     param_names = add_dollar_signs(param_labels)
 
