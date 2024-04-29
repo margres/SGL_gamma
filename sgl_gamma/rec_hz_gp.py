@@ -25,7 +25,7 @@ class GP:
         else:
             self.output_folder =  os.path.join(self.path_project,'Output', output_folder)
 
-        self.output_table = os.path.join(self.output_folder, 'SGLTable_GP.csv')
+        self.path_output_table = os.path.join(self.output_folder, 'SGLTable_GP.csv')
         self.lens_table_path = lens_table_path
         format = self.lens_table_path.split('.')[-1]
         self.lens_table = Table.read(self.lens_table_path, format=format)
@@ -150,7 +150,7 @@ class GP:
             self.lens_table['dd_GP'] = dd_CC_GP
             self.lens_table['dd_error_GP'] = dd_CC_GP_err
 
-            self.lens_table.write(self.output_table, overwrite =True, format='csv')
+            self.lens_table.write(self.path_output_table, overwrite =True, format='csv')
 
         
             # ======= printing the reconstructed H(z) at the lowest point, i.e., zmin=0, and its relative uncertainty

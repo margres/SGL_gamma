@@ -14,7 +14,7 @@ from multiprocessing import Pool
 from utils_plot import plot_point_with_fit, plot_GetDist,plot_hist_bins
 import seaborn as sns
 from astropy.table import Table
-
+from utils_evaluation import marginal_peak_and_mad, AIC, BIC
 
 seed = 42
 np.random.seed(seed)
@@ -39,8 +39,8 @@ class MCMC:
                  column_sigma_ap = 'sigma_ap',
                  column_theta_ap  = 'theta_ap',
                  save_outputs = True,
-                 run_plots = True
-                 ):
+                 run_plots = True,
+                 evaluation= False):
         
         self.model = model
 
@@ -49,6 +49,7 @@ class MCMC:
         else:
             self.model_name_out = model_name_out
 
+        self.evaluation = evaluation
         self.mode = mode
         self.lens_table_path = lens_table_path
         self.bin_width = bin_width
@@ -127,7 +128,7 @@ class MCMC:
         if (bin_width is None) and (elements_per_bin is None) and  self.mode =='1D':
             print('No binning  - mcmc for every element')
             self.binned = False
-            self.mode = 'singular'
+            self.mode = 'individual'
         elif (bin_width is None) and (elements_per_bin is None) and  self.mode !='1D' :
             self.binned = False
            
@@ -175,11 +176,11 @@ class MCMC:
                 print(e)
                 self.all_samples, self.all_ln_probs = all_samples, all_ln_probs
 
-        self.output_table = os.path.join(self.output_folder, f'SGL_{self.model}_gammaMCMC.csv')
+        self.path_output_table = os.path.join(self.output_folder, f'SGL_{self.model}_gammaMCMC.csv')
 
         if self.param_fit== 'theta_Edivtheta_eff':
             self.lens_table['theta_Edivtheta_eff'] = self.lens_table['theta_E'] / self.lens_table['theta_eff']
-            self.lens_table.to_csv(self.output_table, index=False)
+            self.lens_table.to_csv(self.path_output_table, index=False)
     
 
     def create_out_table(self, median, mean,mad):
@@ -219,7 +220,7 @@ class MCMC:
             #print(sub_table['zl'])
         return subtables
     
-    def get_parameters(self,row,zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list ):
+    def get_parameters(self, row, zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list ):
 
         zl = row['zl']
         theta_E_r = row['theta_E'] * u.arcsec.to('radian')
@@ -400,18 +401,21 @@ class MCMC:
                 self.chain_info_list.append(chain_info)
 
                 if self.save_outputs:
-                    pd.DataFrame(self.chain_info_list).to_csv(os.path.join(self.output_folder,'mcmc_chain_log.csv' ))
+                    pd.DataFrame(self.chain_info_list).to_csv(os.path.join(self.output_folder,'mcmc_chain_logfile.csv' ))
 
                 # Append the samples for this 'z_l' bin to the list of all samples
                 all_samples.append(sampler.get_chain(discard=self.burnin, thin=thin))
                 #all_ln_probs.append(sampler.get_log_prob())
+
+        self.all_samples = np.array(all_samples)  
+        
         if self.save_outputs:
             # Process and plot the combined results for each 'z_l' bin here
-            np.save(os.path.join(self.output_folder,f'{self.mode}_mcmc_samples.npy'),all_samples)
+            np.save(os.path.join(self.output_folder,f'mcmc_samples_{self.mode}.npy'),all_samples)
         #np.save(os.path.join(self.output_folder,f'all_ln_probs{self.mode}.npy'),all_ln_probs)
-        self.all_samples = np.array(all_samples)
+
         #elf.all_ln_probs = np.array(all_ln_probs)
-        print('mcmc finished! \n ')
+        print('mcmc completed! \n ')
 
     def calculate_statistics(self):
         """
@@ -428,10 +432,10 @@ class MCMC:
         if (self.bin_width is None) and (self.elements_per_bin is None):
             self.lens_table[f'Gamma_median_{self.model}'] = median_value
             self.lens_table[f'Gamma_MAD_{self.model}'] = mad_value
-            self.lens_table.write(self.output_table, format='csv', overwrite=True)
+            self.lens_table.write(self.path_output_table, format='csv', overwrite=True)
         else:
             results_table = self.create_out_table( median_value, mean_value,mad_value)
-            results_table.write(self.output_table, format='csv', overwrite=True)
+            results_table.write(self.path_output_table, format='csv', overwrite=True)
 
         return median_value, mean_value, mad_value
 
@@ -512,7 +516,7 @@ class MCMC:
         - all_ln_probs: list of arrays, ln_probs for each 'z_l' bin.
         """
 
-        samples_file_path = os.path.join(self.output_folder, f'{self.mode}_mcmc_samples.npy')
+        samples_file_path = os.path.join(self.output_folder, f'mcmc_samples_{self.mode}.npy')
         #ln_probs_file_path = os.path.join(self.output_folder, f'all_ln_probs{self.mode}.npy')
 
         if os.path.exists(samples_file_path): #and os.path.exists(ln_probs_file_path):
@@ -556,6 +560,27 @@ class MCMC:
     def path_exists(self, output_folder, file_name):
         os.path.exists(os.path.join(output_folder , file_name))
 
+    def calc_AIC_BIC(self, samples):
+
+        peak = marginal_peak_and_mad(samples, ndim=self.ndim)[0]
+
+        zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list = [],[], [], [], [], [], []
+        
+        print(self.lens_table.iterrows())
+        
+        for row in self.lens_table:
+            zl_list01, theta_E_r_list01, theta_ap_r_list01, sigma_ap_list01, dd_list01, abs_delta_sigma_ap_list01, abs_delta_dd_list01 = self.get_parameters(row,zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list)
+        
+        if self.ndim == 1:
+            max = self.lnprob_touse(peak, theta_E_r_list01, theta_ap_r_list01, sigma_ap_list01, dd_list01, abs_delta_sigma_ap_list01, abs_delta_dd_list01)
+        else:
+            max = self.lnprob_touse(peak, zl_list01, theta_E_r_list01, theta_ap_r_list01, sigma_ap_list01, dd_list01, abs_delta_sigma_ap_list01, abs_delta_dd_list01)
+
+        aic = AIC(self.ndim, max)
+        bic = BIC(len(self.lens_table), self.ndim, max)
+
+        return aic, bic
+
 
     def main(self):
         
@@ -564,6 +589,7 @@ class MCMC:
             self.run_mcmc()
 
         self.all_samples = np.squeeze(self.all_samples)
+
         plot_name = f'Posterior_Dist_{self.mode}.png' 
         if self.run_plots:
             # different plottings
@@ -598,4 +624,40 @@ class MCMC:
 
                 if (not self.path_exists(self.output_folder, 'linear_fit_gamma.png') or self.force_plots):
                     self.plot_results(  plot_name = 'linear_fit_gamma.png')
+       
+        if self.evaluation:
+            if self.ndim==1:
+                aic, bic = [], []
+                
+                #zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list = [],[], [], [], [], [], []
+                #for index,row in self.lens_table.iterrows():
+                #    zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list = self.get_parameters(row, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list)
+                zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list = self.process_subtable(self.lens_table)
 
+                for  i in range(len(self.lens_table)):
+                    samples1 = self.all_samples[i]
+                    #np.load(samples_file1, allow_pickle=True).squeeze()[i]
+                    peak = marginal_peak_and_mad(samples1)[0]
+                    max = lnprob(peak, theta_E_r_list[i], theta_ap_r_list[i], sigma_ap_list[i], dd_list[i], abs_delta_sigma_ap_list[i], abs_delta_dd_list[i])
+                    aic_tmp =  AIC(self.ndim, max)
+                    bic_tmp = BIC(self.ndim,len(self.lens_table),max)
+
+                    aic.append(aic_tmp) 
+                    bic.append(bic_tmp)
+
+            else:
+
+                #zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list = [],[], [], [], [], [], []
+                zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list = self.process_subtable(self.lens_table)
+                #for row in self.lens_table:
+                #    zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list = self.get_parameters(row,zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list)
+            
+                max = self.lnprob_touse(peak,zl_list, theta_E_r_list, theta_ap_r_list, sigma_ap_list, dd_list, abs_delta_sigma_ap_list, abs_delta_dd_list)
+
+                aic = AIC(self.ndim, max)
+                bic = BIC(len(self.lens_table), self.ndim, max)
+            
+            
+            pd.DataFrame({'AIC': aic, 
+                'BIC': bic}).to_csv(os.path.join(self.output_folder,f'{self.mode}_AIC_BIC.csv' ))
+            

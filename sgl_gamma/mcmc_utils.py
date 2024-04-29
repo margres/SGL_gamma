@@ -344,8 +344,8 @@ def lnprob_K_5D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta
 #     # Return the total log-likelihood plus the log-prior for beta
 #     return total_lnlike + ln_prior_beta
 
-# def delta_z1(d0,d1,z):
-#     return d0+d1*z
+def delta_z1(d0,d1,z):
+     return d0+d1*z
 
 # def lnprob_K_5D(g, zl, theta, theta_ap, sigma, dd, abs_delta_sigma_ap, abs_delta_dd):
 #     g0, g1, d0, d1, beta = g

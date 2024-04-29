@@ -43,13 +43,13 @@ ncpu = None
 wmean = False
 table_CC = 'Hz-34.txt'
 cut_table = True
-mcmc_linear=True
+mcmc_linear=False
 
 #please write first the GP and then ANN
 name_model_list = [ 'GP', 'ANN']
 
 #this can be None
-model_name_out_list = ['GP34_scalingfactor', 'ANN34_scalingfactor']
+model_name_out_list = ['GP34', 'ANN34']
 
 # shortens the table used for mcmc accordinly to max('zs') of the table_cc
 if cut_table:
@@ -58,11 +58,11 @@ if cut_table:
 
 ## run the GP
 print( '\n ************** running the GP reconstruction ************** \n')
-GP = GP(lens_table_path =lens_table_path, 
+GP_rec = GP(lens_table_path =lens_table_path, 
         path_project=path_project, table_CC= table_CC , 
         output_folder = model_name_out_list[0]  )
-GP.main()
-add_fsolve_table(path_project , GP.output_table)
+GP_rec.main()
+add_fsolve_table( GP_rec.path_output_table)
 print('Done! \n')
 
 
@@ -70,20 +70,19 @@ print('Done! \n')
 print(' \n  ************** running the ANN reconstruction ************** ' )
 ANN_rec = ANN(path_project=path_project, 
         lens_table_path=lens_table_path,
-        output_folder = model_name_out_list[0])
+        output_folder = model_name_out_list[1])
 ANN_rec.main()
-add_fsolve_table(path_project , ANN_rec.output_table)
 print('Done! \n')
 
 print('Calculating weighted mean of dd from GP and ANN')
 
 if wmean:
-    combined_tab = combined_dd(GP.output_table, ANN_rec.output_table, 
+    combined_tab = combined_dd(GP_rec.path_output_table, ANN_rec.path_output_table, 
                 output_folder= os.path.join(path_project, 'Output', 'Combined_dd' ),
                 return_table_path=True)
 
 
-table_list = [GP.output_table, ANN_rec.output_table ]
+table_list = [GP_rec.path_output_table ]
 
 
 for name_model, table,model_name_out  in zip(name_model_list, table_list, model_name_out_list) :
@@ -93,7 +92,7 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, model_
         color_points = 'royalblue'
     elif name_model=='wmean':
         color_points = '#e3b23c'
-    '''
+    
     print (f' \n  ************** MCMC for {name_model} ************** \n ')
     
     print(f" \n ************** gamma from {table} for every value ************** \n")
@@ -105,9 +104,13 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, model_
                 model_name_out =model_name_out)
     mcmc.main()
     print('Done! \n')
+
+    if mcmc_linear:
+        print(mcmc.path_output_table)
+        run_linearfit(mcmc.path_output_table, mcmc.output_folder)
     
 
-    '''
+    
     print(f" \n ************** gamma from {table} for fixed bins ************** \n")
     ## run the mcmc for fixed bins
     mcmc_fixed_bins = MCMC(lens_table_path = table , model=name_model, bin_width=0.1,
@@ -117,13 +120,12 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, model_
                             model_name_out =model_name_out)
     mcmc_fixed_bins.main()
     print('Done! \n')
-    
+
     if mcmc_linear:
-        print(mcmc_fixed_bins.output_table)
-        run_linearfit(mcmc_fixed_bins.output_table, mcmc_fixed_bins.output_folder)
+        print(mcmc_fixed_bins.path_output_table)
+        run_linearfit(mcmc_fixed_bins.path_output_table, mcmc_fixed_bins.output_folder)
 
-
-    '''
+    
     print(f" \n ************** gamma from {table} for adaptive bins ************** \n")
     ## run the mcmc for fixed bins
     mcmc_instance_binned = MCMC(lens_table_path = table , model=name_model,
@@ -134,6 +136,10 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, model_
     mcmc_instance_binned.main()
 
     print('Done! \n')
+
+    if mcmc_linear:
+        print(mcmc_fixed_bins.path_output_table)
+        run_linearfit(mcmc_fixed_bins.path_output_table, mcmc_fixed_bins.output_folder)
     
     print(' \n  ************** gamma direct fit ************** ' )
     mcmc_direct = MCMC(lens_table_path =table, 
@@ -143,17 +149,6 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, model_
                     model_name_out =model_name_out)
     mcmc_direct.main()
     print('Done! \n')
-
-
-    print(' \n  ************** gamma linear fit ************** ' )
-    mcmc_linear = MCMC(lens_table_path =  table ,
-                    path_project=path_project, 
-                model=name_model, nwalkers = nwalkers, nsteps = nsteps, mode='linear', x_ini=[2.0, 0],
-                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
-                model_name_out =model_name_out)
-    mcmc_linear.main()
-    print('Done! \n')
-
 
             
     print(' \n  ************** Koopmans power law 2d fixed beta ************** ' ) 
@@ -193,5 +188,5 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, model_
                 model_name_out =model_name_out)
     mcmc_K.main()
     print('Done! \n')
-    '''
+    
     

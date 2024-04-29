@@ -6,6 +6,8 @@ from astropy import units as u
 import os 
 from astropy.table import Table
 
+
+
 c = 299792.458 
 
 def DA_reconstruct_z(z,zlist,hzlist,sighzlist):
@@ -79,7 +81,7 @@ def func_to_solve(pmgamma,thetaE,theta_ap,sigma_ap,Da_r):
     return Da_r-dis_ratio_lensing(thetaE,theta_ap,sigma_ap,pmgamma)
 
 
-def add_fsolve_table(path_project, path_table, x0=2):
+def add_fsolve_table( path_table, x0=2):
 
     table  = Table.read(path_table,  format='csv')
 
@@ -89,7 +91,9 @@ def add_fsolve_table(path_project, path_table, x0=2):
     theta_ap = table['theta_ap'] * u.arcsec.to('radian')
     sigma_ap = table['sigma_ap']
     
-    res_GP = np.load(os.path.join(path_project,'Output' ,'GP', 'hz_reconstructed_GP.npy'))
+    
+    output_folder = os.path.dirname(path_table)
+    res_GP = np.load(os.path.join(output_folder, 'hz_reconstructed_GP.npy'))
     # calculate the distance ratio
     Da_ratio = dis_ratio_rec(zl,zs,res_GP)
 

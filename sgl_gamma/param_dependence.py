@@ -29,14 +29,14 @@ if name_model =='GP':
     print( '\n ************** running the GP reconstruction ************** \n')
     GP = GP(lens_table_path =lens_table_path, path_project=path_project)
     #GP.main()
-    table =GP.output_table 
+    table =GP.path_output_table 
     color_points = '#d00000'
 elif name_model=='ANN':
     ## run the ANN
     print( '\n ************** running the ANN reconstruction ************** \n')
     ANN = ANN(path_project=path_project, lens_table_path=lens_table_path)
     #ANN.main()
-    table = ANN.output_table 
+    table = ANN.path_output_table 
     color_points  = '#0e79b2'
 
 ## run the mcmc 
@@ -60,7 +60,7 @@ for param, lab in zip(parameters_list, labels):
 
     print(f' \n  ************** {param} ************** ' )
 
-    mcmc_linear = MCMC(lens_table_path =  mcmc.output_table   ,
+    mcmc_linear = MCMC(lens_table_path =  mcmc.path_output_table   ,
                     path_project=path_project,
                     param_fit = param, 
                 model=name_model, nwalkers = nwalkers, nsteps = nsteps, mode='linear', x_ini=[2.0, 0],

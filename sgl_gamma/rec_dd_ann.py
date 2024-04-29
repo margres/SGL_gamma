@@ -42,7 +42,7 @@ class ANN:
         else:
             self.output_folder = os.path.join(self.path_project, 'Output', output_folder) 
         self.save_model_as = save_model_as
-        self.output_table = os.path.join(self.output_folder, 'SGLTable_ANN.csv')
+        self.path_output_table = os.path.join(self.output_folder, 'SGLTable_ANN.csv')
 
         if not os.path.exists(self.output_folder):
             print(f'making dir {self.output_folder}')
@@ -151,5 +151,5 @@ class ANN:
         dd, dd_e = self.distance_ratio(SL['zl'],SL['zs'])
         SL['dd_ANN'] = dd
         SL['dd_error_ANN'] = dd_e
-        print(f"Creating table with distance ratio from ANN predictions in { self.output_table}")
-        SL.write(self.output_table, overwrite = True, format ='csv')
+        print(f"Creating table with distance ratio from ANN predictions in { self.path_output_table}")
+        SL.write(self.path_output_table, overwrite = True, format ='csv')
