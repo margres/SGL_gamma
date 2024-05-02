@@ -102,10 +102,13 @@ class MCMC:
             elif mode == 'Koopmans_5D':
                 self.lnprob_touse = lnprob_K_5D
             else:
-                raise ValueError(f'mode {mode} not available ')
+                raise ValueError(f'mode {mode} not available, available ones are: \n linear, direct, 1D, Koopmans_2D, Koopmans_3D, Koopmans_4D, Koopmans_5D')
         else: 
             self.lnprob_touse = lnprob_touse
             print('Using the given lnbprob')
+
+        if mode is None:
+            self.mode = ''
         
         if burnin is None:
             self.burnin = int(nsteps*0.1)
@@ -164,7 +167,7 @@ class MCMC:
                 pass
     
         if not os.path.exists(self.output_folder):
-            print(f'making dir {self.output_folder}')
+            print(f'creating dir {self.output_folder}')
             os.makedirs(self.output_folder, exist_ok=True)
             self.all_samples, self.all_ln_probs = all_samples, all_ln_probs
         elif force_run:

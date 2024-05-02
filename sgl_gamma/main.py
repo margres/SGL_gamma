@@ -4,7 +4,7 @@ from rec_gamma_mcmc import MCMC
 import os
 from rec_fsolve import add_fsolve_table
 from combined_gamma import combined_dd, lenstable_cut_by_z
-
+from mcmc_utils import  lnprob_K_5D_scale
 
 
 
@@ -41,15 +41,15 @@ nsteps = 20000
 checkpoint = True
 ncpu = None
 wmean = False
-table_CC = 'Hz-34.txt'
+table_CC = 'Hz-35.txt'
 cut_table = True
 mcmc_linear=False
 
 #please write first the GP and then ANN
-name_model_list = [ 'GP', 'ANN']
+name_model_list = ['ANN', 'GP']
 
 #this can be None
-model_name_out_list = ['GP34', 'ANN34']
+name_model_out_list = [ 'ANN35', 'GP35']
 
 # shortens the table used for mcmc accordinly to max('zs') of the table_cc
 if cut_table:
@@ -60,9 +60,9 @@ if cut_table:
 print( '\n ************** running the GP reconstruction ************** \n')
 GP_rec = GP(lens_table_path =lens_table_path, 
         path_project=path_project, table_CC= table_CC , 
-        output_folder = model_name_out_list[0]  )
+        output_folder = name_model_out_list[0]  )
 GP_rec.main()
-add_fsolve_table( GP_rec.path_output_table)
+#add_fsolve_table( GP_rec.path_output_table)
 print('Done! \n')
 
 
@@ -70,22 +70,25 @@ print('Done! \n')
 print(' \n  ************** running the ANN reconstruction ************** ' )
 ANN_rec = ANN(path_project=path_project, 
         lens_table_path=lens_table_path,
-        output_folder = model_name_out_list[1])
+        output_folder = name_model_out_list[0])
 ANN_rec.main()
 print('Done! \n')
 
-print('Calculating weighted mean of dd from GP and ANN')
-
 if wmean:
+    print('Calculating weighted mean of dd from GP and ANN')
     combined_tab = combined_dd(GP_rec.path_output_table, ANN_rec.path_output_table, 
                 output_folder= os.path.join(path_project, 'Output', 'Combined_dd' ),
                 return_table_path=True)
 
 
-table_list = [GP_rec.path_output_table ]
+table_list = [ANN_rec.path_output_table, GP_rec.path_output_table  ]
 
 
-for name_model, table,model_name_out  in zip(name_model_list, table_list, model_name_out_list) :
+if not len(table_list) == len(name_model_out_list) == len(name_model_list):
+     raise ValueError('table_list, name_model_out_list, name_model_list need to all have the same lenght')
+
+
+for name_model, table,model_name_out  in zip(name_model_list, table_list, name_model_out_list) :
     if 'GP' in  name_model :
         color_points = '#d00000'
     if  'ANN' in name_model:
@@ -186,6 +189,18 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, model_
                 model=name_model, nwalkers=400, nsteps = 20000,lnprob_touse=None, mode='Koopmans_5D',  x_ini= [2.0, 0, 2.0, 0, 0],
                 checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
                 model_name_out =model_name_out)
+    mcmc_K.main()
+    print('Done! \n')
+
+    
+    print(' \n  ************** Koopmans power law 5d ************** ' )    
+    mcmc_K = MCMC(lens_table_path = table,
+                    path_project=path_project,
+                model=name_model, nwalkers=400, nsteps = 20000, mode='Koopmans_5D_scale',  x_ini= [2.0, 0, 2.0, 0, 0],
+                checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
+                model_name_out =model_name_out,  
+                lnprob_touse= lnprob_K_5D_scale)
+    
     mcmc_K.main()
     print('Done! \n')
     

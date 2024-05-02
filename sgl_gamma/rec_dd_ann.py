@@ -140,7 +140,7 @@ class ANN:
 
         if os.path.isfile(os.path.join(self.output_folder, self.save_model_as)):
             print('Found model weights, loading the weights')
-            self.model = keras.models.load_model(os.path.join(self.output_folder, self.save_model_as))
+            self.model = keras.models.load_model(os.path.join(self.output_folder, self.save_model_as), compile=False)
         else:
             print('Training the model')
             self.train_model(X,Y,X_val, Y_val)

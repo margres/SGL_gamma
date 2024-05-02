@@ -157,7 +157,7 @@ class GP:
             # print(f'z = {zrec[0]}, H0 = {hzrec[0]}, sigH0 = {sighzrec[0]}, sigH0/H0(%) = {(sighzrec[0] / hzrec[0]) * 100.}')
             print('z = {}, H0 = {}, sigH0 = {}, sigH0/H0(%) = {}'.format(zrec[0], hzrec[0], sighzrec[0], (sighzrec[0] / hzrec[0]) * 100.))
             # print(f'saving results GP as {os.path.join(self.path_project, "hz_reconstructed_GP.txt")}')
-            print(' \n saving results GP results in {} \n'.format(os.path.join(self.path_project,  self.output_name)))
+            print(' \n saving results GP results in {} \n'.format(os.path.join(self.output_folder,  self.output_name)))
             # ========== saving the reconstructed hz
             np.save(os.path.join(self.output_folder,  self.output_name), rec1)
 
