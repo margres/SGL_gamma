@@ -34,22 +34,22 @@ path_project =  os.path.dirname(os.path.dirname(script_path))
 print(f'Path in which your output will be saved {path_project}')
 
 
-lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable.fits')
+lens_table_path = os.path.join(path_project, 'Data' , 'SGLTable_goodguys04.fits')
 nwalkers = 200
 nsteps = 20000
 #if true runs usinf the checkpoint system
 checkpoint = True
 ncpu = None
 wmean = False
-table_CC = 'Hz-35.txt'
-cut_table = True
+table_CC = 'Hz-34.txt'
+cut_table = False
 mcmc_linear=False
 
 #please write first the GP and then ANN
 name_model_list = ['ANN', 'GP']
 
 #this can be None
-name_model_out_list = [ 'ANN35', 'GP35']
+name_model_out_list = [ 'ANNlong_goodguys', 'GP35_goodguys']
 
 # shortens the table used for mcmc accordinly to max('zs') of the table_cc
 if cut_table:
@@ -124,6 +124,18 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, name_m
     mcmc_fixed_bins.main()
     print('Done! \n')
 
+
+    print(f" \n ************** gamma from {table} for fixed bins ************** \n")
+    ## run the mcmc for fixed bins
+    mcmc_fixed_bins = MCMC(lens_table_path = table , model=name_model, bin_width=0.1,
+                            mode='1D',  type_step = 'z',
+                            path_project = path_project, nwalkers = nwalkers, nsteps = nsteps,
+                            checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
+                            model_name_out =model_name_out)
+    mcmc_fixed_bins.main()
+    print('Done! \n')
+
+
     if mcmc_linear:
         print(mcmc_fixed_bins.path_output_table)
         run_linearfit(mcmc_fixed_bins.path_output_table, mcmc_fixed_bins.output_folder)
@@ -171,7 +183,7 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, name_m
                 model_name_out =model_name_out)
     mcmc_K_beta.main()    
     print('Done! \n')
-
+    '''
 
         
     print(' \n  ************** Koopmans power law 4d fixed beta ************** ' ) 
@@ -192,7 +204,7 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, name_m
     mcmc_K.main()
     print('Done! \n')
 
-    
+    '''
     print(' \n  ************** Koopmans power law 5d ************** ' )    
     mcmc_K = MCMC(lens_table_path = table,
                     path_project=path_project,

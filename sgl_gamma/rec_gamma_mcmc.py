@@ -30,6 +30,7 @@ class MCMC:
                  all_ln_probs=None,all_samples=None,
                  lnprob_touse = None, x_ini=[2],
                  nsteps_per_checkpoint = 1000,
+                 type_step = 'a',
                  checkpoint=True,
                  param_fit = 'zl',
                  force_run = False,
@@ -67,6 +68,7 @@ class MCMC:
         self.column_theta_ap = column_theta_ap
         self.save_outputs = save_outputs
         self.run_plots =  run_plots
+        self.type_step = type_step 
 
         # Load lens table
         format = self.lens_table_path.split('.')[-1]
@@ -137,16 +139,22 @@ class MCMC:
            
         if (bin_width is not None) and self.mode =='1D' :
             #fixed
-            self.mode = 'fixed'
-            a = 1./ (1 + self.lens_table['zl'])
-            bins = np.arange(min(a), max(a)+ bin_width, self.bin_width)
-            bin_edges = 1/bins-1
-            self.bin_edges = bin_edges[::-1]
-            '''
-            min_z_l = self.lens_table['zl'].min()
-            max_z_l = self.lens_table['zl'].max()
-            self.bin_edges = np.arange(min_z_l, max_z_l + self.bin_width, self.bin_width)
-            '''
+            
+            if self.type_step =='a':
+
+                a = 1./ (1 + self.lens_table['zl'])
+                bins = np.arange(min(a), max(a)+ bin_width, self.bin_width)
+                bin_edges = 1/bins-1
+                self.bin_edges = bin_edges[::-1]
+
+            elif  self.type_step =='z':
+                min_z_l = self.lens_table['zl'].min()
+                max_z_l = self.lens_table['zl'].max()
+                self.bin_edges = np.arange(min_z_l, max_z_l + self.bin_width, self.bin_width)
+            else:
+                raise ValueError(f'type_step {self.type_step} not available, only "a", "z" available')
+            
+            self.mode = f'fixed_in_{self.type_step}'
 
         if (elements_per_bin is not None) and self.mode =='1D':
             #adaptive
@@ -600,33 +608,35 @@ class MCMC:
                 param_labels = [r'\gamma_0', r'\gamma_S']
                 plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder,  plot_name=plot_name)
 
-            elif (self.mode == 'Koopmans_2D') and (not self.path_exists(self.output_folder, plot_name) or self.force_plots):
+            elif ('Koopmans_2D' in self.mode) and (not self.path_exists(self.output_folder, plot_name) or self.force_plots):
 
                 param_labels = [r'\gamma',r'\delta']
                 plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder,  plot_name=plot_name)
 
-            elif (self.mode == 'Koopmans_3D') and (not self.path_exists(self.output_folder,  plot_name) or self.force_plots):
+            elif ('Koopmans_3D' in self.mode) and (not self.path_exists(self.output_folder,  plot_name) or self.force_plots):
 
                 param_labels = [r'\gamma',r'\delta', r'\beta']
                 plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder,  plot_name=plot_name)
 
-            elif (self.mode == 'Koopmans_4D') and (not self.path_exists(self.output_folder,  plot_name ) or self.force_plots):
+            elif ('Koopmans_4D' in self.mode) and (not self.path_exists(self.output_folder,  plot_name ) or self.force_plots):
 
                 param_labels = [r'\gamma_0', r'\gamma_S',r'\delta_0',r'\delta_S']
                 plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder,  plot_name=plot_name)
 
-            elif (self.mode =='Koopmans_5D') and (not self.path_exists(self.output_folder,  plot_name) or self.force_plots):
+            elif ('Koopmans_5D' in self.mode) and (not self.path_exists(self.output_folder,  plot_name) or self.force_plots):
 
                 param_labels = [r'\gamma_0', r'\gamma_S',r'\delta_0',r'\delta_S',r'\beta']
                 plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder,  plot_name=plot_name)
 
-            else:
+            elif '1D' in self.mode:
             
                 if (not self.path_exists(self.output_folder,plot_name) or self.force_plots):
                     self.plot_post_prob(output_folder = self.output_folder,  plot_name =  plot_name)
 
                 if (not self.path_exists(self.output_folder, 'linear_fit_gamma.png') or self.force_plots):
                     self.plot_results(  plot_name = 'linear_fit_gamma.png')
+            else:
+                print(f'Plotting not available for mode = {self.mode}')
        
         if self.evaluation:
             if self.ndim==1:
