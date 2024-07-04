@@ -46,10 +46,10 @@ cut_table = False
 mcmc_linear=False
 
 #please write first the GP and then ANN
-name_model_list = ['ANN', 'GP']
+name_model_list = ['GP', 'ANN']
 
 #this can be None
-name_model_out_list = [ 'ANNlong_goodguys', 'GP35_goodguys']
+name_model_out_list = [ 'GP_check_code', 'ANN_check_code']
 
 # shortens the table used for mcmc accordinly to max('zs') of the table_cc
 if cut_table:
@@ -60,7 +60,7 @@ if cut_table:
 print( '\n ************** running the GP reconstruction ************** \n')
 GP_rec = GP(lens_table_path =lens_table_path, 
         path_project=path_project, table_CC= table_CC , 
-        output_folder = name_model_out_list[0]  )
+        output_folder = name_model_out_list[0],force_run=False  )
 GP_rec.main()
 #add_fsolve_table( GP_rec.path_output_table)
 print('Done! \n')
@@ -70,7 +70,7 @@ print('Done! \n')
 print(' \n  ************** running the ANN reconstruction ************** ' )
 ANN_rec = ANN(path_project=path_project, 
         lens_table_path=lens_table_path,
-        output_folder = name_model_out_list[0])
+        output_folder = name_model_out_list[1])
 ANN_rec.main()
 print('Done! \n')
 
@@ -81,7 +81,7 @@ if wmean:
                 return_table_path=True)
 
 
-table_list = [ANN_rec.path_output_table, GP_rec.path_output_table  ]
+table_list = [GP_rec.path_output_table, ANN_rec.path_output_table  ]
 
 
 if not len(table_list) == len(name_model_out_list) == len(name_model_list):

@@ -84,8 +84,8 @@ class ANN:
 
     def model_ANN(self,loss):
 
-        input_shape = (1)
-        inputs=Input(shape=(input_shape),name='input_layer')
+        input_shape = 1
+        inputs=Input(shape=(input_shape,),name='input_layer')
 
         x =  Dense(2048, activation = 'elu',kernel_initializer="glorot_uniform",name='dense1')(inputs)
         # x = layers.Dropout(0.5)(x)
