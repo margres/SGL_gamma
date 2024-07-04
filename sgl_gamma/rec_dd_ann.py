@@ -6,12 +6,14 @@ from astropy.table import unique
 from tensorflow import keras
 import os 
 import tensorflow as tf
-from tensorflow import keras
+#from tensorflow import keras
 from tensorflow.keras.layers import Input, Dense
 from astropy.constants import c
 import numpy as np
 from tensorflow.keras import layers
 from astropy.table import Table
+
+import sys
 
 c = c.to('km/s')
 
@@ -23,7 +25,7 @@ class ANN:
                  data=None, 
                  model=None, metric='mse',
                  epochs= 300,  
-                 save_model_as='weights_ANN.h5',
+                 save_model_as='weights_ANN.keras',
                  output_folder =None
                    ):
         
@@ -108,7 +110,7 @@ class ANN:
                         validation_data=(X_val,Y_val),batch_size=128, verbose=1)  
           
         self.plot_loss(history)
-        self.model.save(os.path.join(self.output_folder, self.save_model_as) , overwrite=True)
+        self.model.save(os.path.join(self.output_folder, self.save_model_as), overwrite=True)
 
     def test_model(self, X_test):   
 
@@ -140,8 +142,11 @@ class ANN:
 
         if os.path.isfile(os.path.join(self.output_folder, self.save_model_as)):
             print('Found model weights, loading the weights')
-            self.model = keras.models.load_model(os.path.join(self.output_folder, self.save_model_as), compile=False)
+            self.model = keras.models.load_model(os.path.join(self.output_folder, self.save_model_as), compile=False, custom_objects={'mse': 'mse'} )
+            #self.model.compile(loss=self.loss_list[1])  
+
         else:
+            sys.exit()
             print('Training the model')
             self.train_model(X,Y,X_val, Y_val)
         

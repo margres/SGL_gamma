@@ -15,7 +15,7 @@ from utils_plot import plot_point_with_fit, plot_GetDist,plot_hist_bins
 import seaborn as sns
 from astropy.table import Table
 from utils_evaluation import marginal_peak_and_mad, AIC, BIC
-
+import pickle
 seed = 42
 np.random.seed(seed)
 
@@ -72,7 +72,7 @@ class MCMC:
 
         # Load lens table
         format = self.lens_table_path.split('.')[-1]
-        self.lens_table = Table.read(self.lens_table_path, format=format)
+        self.lens_table = Table.read(self.lens_table_path, format=format)#[:10]
         print(f'Table has {len(self.lens_table)} elements')
         self.binned = True
         self.output_folder = output_folder
@@ -417,13 +417,19 @@ class MCMC:
                 # Append the samples for this 'z_l' bin to the list of all samples
                 all_samples.append(sampler.get_chain(discard=self.burnin, thin=thin))
                 #all_ln_probs.append(sampler.get_log_prob())
-
-        self.all_samples = np.array(all_samples)  
+        
+       
+        self.all_samples = np.asarray(all_samples,  dtype=object)  
+        #print(np.shape(all_samples))
         
         if self.save_outputs:
             # Process and plot the combined results for each 'z_l' bin here
-            np.save(os.path.join(self.output_folder,f'mcmc_samples_{self.mode}.npy'),all_samples)
-        #np.save(os.path.join(self.output_folder,f'all_ln_probs{self.mode}.npy'),all_ln_probs)
+            #np.savez(os.path.join(self.output_folder,f'mcmc_samples_{self.mode}.npz'),all_samples)
+                   
+            with open(os.path.join(self.output_folder, f'mcmc_samples_{self.mode}.pkl'), 'wb') as f:
+                pickle.dump(all_samples, f)
+        
+#np.save(os.path.join(self.output_folder,f'all_ln_probs{self.mode}.npy'),all_ln_probs)
 
         #elf.all_ln_probs = np.array(all_ln_probs)
         print('mcmc completed! \n ')
@@ -527,7 +533,9 @@ class MCMC:
         - all_ln_probs: list of arrays, ln_probs for each 'z_l' bin.
         """
 
-        samples_file_path = os.path.join(self.output_folder, f'mcmc_samples_{self.mode}.npy')
+        with open(os.path.join(output_folder, f'mcmc_samples_{mode}.pkl'), 'rb') as f:
+            all_samples = pickle.load(f)
+        #samples_file_path = os.path.join(self.output_folder, f'mcmc_samples_{self.mode}.pkl')
         #ln_probs_file_path = os.path.join(self.output_folder, f'all_ln_probs{self.mode}.npy')
 
         if os.path.exists(samples_file_path): #and os.path.exists(ln_probs_file_path):
