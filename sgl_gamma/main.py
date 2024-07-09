@@ -125,17 +125,6 @@ for name_model, table,model_name_out  in zip(name_model_list, table_list, name_m
     print('Done! \n')
 
 
-    print(f" \n ************** gamma from {table} for fixed bins ************** \n")
-    ## run the mcmc for fixed bins
-    mcmc_fixed_bins = MCMC(lens_table_path = table , model=name_model, bin_width=0.1,
-                            mode='1D',  type_step = 'z',
-                            path_project = path_project, nwalkers = nwalkers, nsteps = nsteps,
-                            checkpoint=checkpoint, ncpu=ncpu, color_points=color_points,
-                            model_name_out =model_name_out)
-    mcmc_fixed_bins.main()
-    print('Done! \n')
-
-
     if mcmc_linear:
         print(mcmc_fixed_bins.path_output_table)
         run_linearfit(mcmc_fixed_bins.path_output_table, mcmc_fixed_bins.output_folder)

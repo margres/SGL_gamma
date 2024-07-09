@@ -131,7 +131,18 @@ class ANN:
         plt.savefig(os.path.join(self.output_folder, 'Plot_loss.png'))
         plt.show(block=False)
 
-
+        
+    def rec_curve(self, rec_point_number):
+        z_list = np.linspace(0,3.,rec_point_number+1)[1:]
+        dl = self.model.predict(z_list)[:,0]
+        dl_e = self.model.predict(z_list)[:,1]
+        da = dl/(1.+z_list)**2.0
+        da_e = np.sqrt(1./(1.+z_list)**4.0*dl_e**2.0)
+        rec_curve = np.c_[z_list,da,da_e]
+        rec_curve_output = os.path.join(self.output_folder, 'rec_curve.npy')
+        np.save(rec_curve_output,rec_curve)
+        print("Diameter dustance saved!")
+        
     def main(self,):
 
         

@@ -192,6 +192,12 @@ class MCMC:
         if self.param_fit== 'theta_Edivtheta_eff':
             self.lens_table['theta_Edivtheta_eff'] = self.lens_table['theta_E'] / self.lens_table['theta_eff']
             self.lens_table.to_csv(self.path_output_table, index=False)
+
+    def load_samples(self, file_path):
+        with open(file_path, 'rb') as f:
+            all_samples = pickle.load(f)
+            
+        return all_samples
     
 
     def create_out_table(self, median, mean,mad):
@@ -533,14 +539,12 @@ class MCMC:
         - all_ln_probs: list of arrays, ln_probs for each 'z_l' bin.
         """
 
-        with open(os.path.join(output_folder, f'mcmc_samples_{mode}.pkl'), 'rb') as f:
-            all_samples = pickle.load(f)
-        #samples_file_path = os.path.join(self.output_folder, f'mcmc_samples_{self.mode}.pkl')
+        samples_file_path = os.path.join(self.output_folder, f'mcmc_samples_{self.mode}.pkl')
         #ln_probs_file_path = os.path.join(self.output_folder, f'all_ln_probs{self.mode}.npy')
 
         if os.path.exists(samples_file_path): #and os.path.exists(ln_probs_file_path):
             print(f'load data from  {samples_file_path}')
-            all_samples = np.load(samples_file_path, allow_pickle=True)
+            all_samples = self.load_samples(samples_file_path)
             #all_ln_probs = np.load(ln_probs_file_path, allow_pickle=True)
 
             return all_samples#, all_ln_probs
@@ -606,8 +610,10 @@ class MCMC:
         #run mcmc or use stored results`    `
         if self.all_samples is None:
             self.run_mcmc()
-
-        self.all_samples = np.squeeze(self.all_samples)
+            
+        #print(np.shape(self.all_samples))
+        
+        # self.all_samples = np.squeeze(self.all_samples)
 
         plot_name = f'Posterior_Dist_{self.mode}.png' 
         if self.run_plots:
@@ -636,7 +642,7 @@ class MCMC:
                 param_labels = [r'\gamma_0', r'\gamma_S',r'\delta_0',r'\delta_S',r'\beta']
                 plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder,  plot_name=plot_name)
 
-            elif self.mode in ['individual', 'fixed', 'adapative']:
+            elif self.mode in ['individual', 'fixed', 'adaptive']:
             
                 if (not self.path_exists(self.output_folder,plot_name) or self.force_plots):
                     self.plot_post_prob(output_folder = self.output_folder,  plot_name =  plot_name)

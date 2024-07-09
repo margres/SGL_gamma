@@ -138,7 +138,9 @@ def add_dollar_signs(param_labels):
 def plot_GetDist(samples, param_labels, output_folder, 
                  plot_name= 'Posterior_Dist.png', mode=None):
 
-
+    #samples= np.vstack(samples)
+    #print(np.shape(samples))
+    
     marginal_medians, mads = calculate_marginal_median_and_mad(samples)
     
     if mode is None:
