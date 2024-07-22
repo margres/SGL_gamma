@@ -69,7 +69,8 @@ class ANN:
         
         dd = 1- (dl/ds)*((1+zs)/(1+zl))
         
-        dd_e = (1+zs)/(1+zl)*(1/ds)*np.sqrt(dl_e**2+(ds_e/ds)**2)
+        #dd_e = (1+zs)/(1+zl)*(1/ds)*np.sqrt(dl_e**2+(ds_e/ds)**2)
+        dd_e = (1+zs)/(1+zl)*(1/ds)*np.sqrt(dl_e**2+dl**2.*(ds_e/ds)**2)
 
         return dd, dd_e
 

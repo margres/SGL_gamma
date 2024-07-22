@@ -642,7 +642,7 @@ class MCMC:
                 param_labels = [r'\gamma_0', r'\gamma_S',r'\delta_0',r'\delta_S',r'\beta']
                 plot_GetDist(np.squeeze(self.all_samples), param_labels, output_folder = self.output_folder,  plot_name=plot_name)
 
-            elif self.mode in ['individual', 'fixed', 'adaptive']:
+            elif 'fixed' in self.mode or self.mode in ['individual', 'adaptive']:
             
                 if (not self.path_exists(self.output_folder,plot_name) or self.force_plots):
                     self.plot_post_prob(output_folder = self.output_folder,  plot_name =  plot_name)
